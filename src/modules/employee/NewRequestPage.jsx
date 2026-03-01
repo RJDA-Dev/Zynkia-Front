@@ -7,6 +7,7 @@ import Avatar from '../../components/ui/Avatar'
 import DatePicker from '../../components/ui/DatePicker'
 import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
+import TimePicker from '../../components/ui/TimePicker'
 import { useLang } from '../../context/LangContext'
 import { useToast } from '../../context/ToastContext'
 import { requests, portal } from '../../api/services'
@@ -267,8 +268,8 @@ export default function NewRequestPage() {
                 </div>
                 {activeTab === 'extras' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input label={es ? 'Hora inicio' : 'Start time'} type="time" icon="schedule" value={form.startTime} onChange={set('startTime')} />
-                    <Input label={es ? 'Hora fin' : 'End time'} type="time" icon="schedule" value={form.endTime} onChange={set('endTime')} />
+                    <TimePicker label={es ? 'Hora inicio' : 'Start time'} value={form.startTime} onChange={v => setForm(f => ({ ...f, startTime: v }))} />
+                    <TimePicker label={es ? 'Hora fin' : 'End time'} value={form.endTime} onChange={v => setForm(f => ({ ...f, endTime: v }))} />
                   </div>
                 )}
                 {activeTab === 'extras' && form.startTime && form.endTime && form.startDate && (() => {

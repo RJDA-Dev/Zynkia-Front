@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { employees as empService } from '../../api/services'
 import useFetch from '../../hooks/useFetch'
 import Badge from '../../components/ui/Badge'
@@ -24,6 +25,8 @@ export default function EmployeeListPage() {
   const [page, setPage] = useState(1)
   const [empData, setEmpData] = useState({ data: [], total: 0, totalPages: 1 })
   const [empLoading, setEmpLoading] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(null)
+  const navigate = useNavigate()
   const { t, lang } = useLang()
   const es = lang === 'es'
   const { formatCurrency } = useCurrency()
@@ -131,9 +134,21 @@ export default function EmployeeListPage() {
                       <p className="text-xs font-medium text-gray-600 capitalize">{emp.contractType || '-'}</p>
                     </div>
                     <Badge color={emp.status === 'active' ? 'success' : 'danger'} dot>{emp.status === 'active' ? t('active') : t('inactive')}</Badge>
-                    <button className="text-gray-400 hover:text-primary p-1 rounded-full hover:bg-gray-100">
-                      <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                    </button>
+                    <div className="relative">
+                      <button onClick={() => setMenuOpen(menuOpen === emp.id ? null : emp.id)} className="text-gray-400 hover:text-primary p-1 rounded-full hover:bg-gray-100">
+                        <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                      </button>
+                      {menuOpen === emp.id && (
+                        <div className="absolute right-0 top-full mt-1 z-30 bg-white rounded-xl shadow-xl border border-gray-200 py-1 w-44 animate-fade-in">
+                          <button onClick={() => { navigate(`/employees/${emp.id}`); setMenuOpen(null) }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[16px]">visibility</span>{es ? 'Ver detalle' : 'View detail'}
+                          </button>
+                          <button onClick={() => { navigate(`/employees/${emp.id}`); setMenuOpen(null) }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[16px]">edit</span>{es ? 'Editar' : 'Edit'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}
