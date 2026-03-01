@@ -29,7 +29,8 @@ export default function RequestApprovalPage() {
   const toast = useToast()
   const { formatCurrency: fc } = useCurrency()
   const [detail, setDetail] = useState(null)
-  const { data, loading, refetch } = useFetch(() => reqService.list({ status: 'pending' }), { key: 'requests-pending' })
+  const [filter, setFilter] = useState('pending')
+  const { data, loading, refetch } = useFetch(() => reqService.list(filter === 'all' ? {} : { status: filter }), { key: `requests-${filter}`, deps: [filter] })
   const { mutate: approve } = useMutation((id) => reqService.approve(id))
   const { mutate: reject } = useMutation((id) => reqService.reject(id))
 
@@ -54,10 +55,24 @@ export default function RequestApprovalPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(list.length)} icon="pending_actions" />
+        <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(list.filter(r => r.status === 'pending').length || list.length)} icon="pending_actions" />
         <StatCard label={es ? 'Horas Extra' : 'Overtime'} value={String(otCount)} icon="more_time" iconColor="text-amber-600 bg-amber-50" />
         <StatCard label={es ? 'Costo Extras' : 'OT Cost'} value={fc(otTotal)} icon="payments" iconColor="text-red-600 bg-red-50" />
         <StatCard label={es ? 'Otros' : 'Other'} value={String(list.length - otCount)} icon="description" iconColor="text-blue-600 bg-blue-50" />
+      </div>
+
+      <div className="flex gap-2">
+        {[
+          { key: 'pending', label: es ? 'Pendientes' : 'Pending', icon: 'hourglass_top' },
+          { key: 'approved', label: es ? 'Aprobadas' : 'Approved', icon: 'check_circle' },
+          { key: 'rejected', label: es ? 'Rechazadas' : 'Rejected', icon: 'cancel' },
+          { key: 'all', label: es ? 'Todas' : 'All', icon: 'list' },
+        ].map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f.key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            <span className="material-symbols-outlined text-[14px]">{f.icon}</span>{f.label}
+          </button>
+        ))}
       </div>
 
       {loading ? <div className="text-center text-gray-400 py-12">{es ? 'Cargando...' : 'Loading...'}</div> : (
@@ -98,21 +113,28 @@ export default function RequestApprovalPage() {
                       {r.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{r.description}</p>}
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {r.status !== 'pending' && (
+                      <Badge color={r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'danger' : 'neutral'}>
+                        {r.status === 'approved' ? (es ? 'Aprobada' : 'Approved') : r.status === 'rejected' ? (es ? 'Rechazada' : 'Rejected') : r.status}
+                      </Badge>
+                    )}
                     {isOT && (
                       <button onClick={() => setDetail(r)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 font-medium transition-colors">
                         <span className="material-symbols-outlined text-[14px]">visibility</span>
                         {es ? 'Detalle' : 'Detail'}
                       </button>
                     )}
-                    <button onClick={() => handleAction('reject', r.id)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors">
-                      <span className="material-symbols-outlined text-[14px]">close</span>
-                      {t('reject')}
-                    </button>
-                    <button onClick={() => isOT ? setDetail(r) : handleAction('approve', r.id)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium transition-colors">
-                      <span className="material-symbols-outlined text-[14px]">check</span>
-                      {t('approve')}
-                    </button>
+                    {r.status === 'pending' && (<>
+                      <button onClick={() => handleAction('reject', r.id)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors">
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                        {t('reject')}
+                      </button>
+                      <button onClick={() => isOT ? setDetail(r) : handleAction('approve', r.id)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium transition-colors">
+                        <span className="material-symbols-outlined text-[14px]">check</span>
+                        {t('approve')}
+                      </button>
+                    </>)}
                   </div>
                 </div>
               </div>
