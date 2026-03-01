@@ -5,6 +5,17 @@ import { portal } from '../../api/services'
 import Avatar from '../../components/ui/Avatar'
 import Tabs from '../../components/ui/Tabs'
 
+const fmtTime = (t) => {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const tf = localStorage.getItem('timeFormat') || '24h'
+  if (tf === '12h') {
+    const hr = parseInt(h)
+    return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`
+  }
+  return `${h}:${m}`
+}
+
 const shiftColors = {
   morning: { bg: 'bg-blue-100 border-l-4 border-blue-500', text: 'text-blue-700', sub: 'text-blue-600/70' },
   afternoon: { bg: 'bg-purple-100 border-l-4 border-purple-500', text: 'text-purple-700', sub: 'text-purple-600/70' },
@@ -97,7 +108,7 @@ export default function EmployeeSchedulePage() {
                               </div>
                               {shift ? (
                                 <div className={`${colors.bg} p-2 rounded-lg`}>
-                                  <p className={`text-sm font-bold ${colors.text}`}>{shift.startTime?.slice(0,5)} - {shift.endTime?.slice(0,5)}</p>
+                                  <p className={`text-sm font-bold ${colors.text}`}>{fmtTime(shift.startTime)} - {fmtTime(shift.endTime)}</p>
                                   <p className={`text-[11px] capitalize ${colors.sub}`}>{shift.shiftType}</p>
                                 </div>
                               ) : <div className="flex items-center justify-center h-12 text-gray-300 text-xs">--</div>}
@@ -119,7 +130,7 @@ export default function EmployeeSchedulePage() {
                     <div key={s.id || i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                       <p className="text-xs text-gray-400 font-semibold uppercase mb-2">{dayLabels[dayIdx]} {d.toLocaleDateString()}</p>
                       <div className={`${colors.bg} p-3 rounded`}>
-                        <span className={`block font-bold ${colors.text}`}>{s.startTime?.slice(0,5)} - {s.endTime?.slice(0,5)}</span>
+                        <span className={`block font-bold ${colors.text}`}>{fmtTime(s.startTime)} - {fmtTime(s.endTime)}</span>
                         <span className={`text-xs ${colors.sub}`}>{s.shiftType}</span>
                       </div>
                     </div>
@@ -155,7 +166,7 @@ export default function EmployeeSchedulePage() {
                       <div key={i} className="flex items-center gap-3 px-4 py-2.5">
                         <span className="text-xs text-gray-400 w-20">{dayLabels[dayIdx]} {d.getDate()}/{d.getMonth()+1}</span>
                         <div className={`flex-1 ${colors.bg} px-3 py-1.5 rounded`}>
-                          <span className={`text-sm font-bold ${colors.text}`}>{s.startTime?.slice(0,5)} - {s.endTime?.slice(0,5)}</span>
+                          <span className={`text-sm font-bold ${colors.text}`}>{fmtTime(s.startTime)} - {fmtTime(s.endTime)}</span>
                           <span className={`text-xs ml-2 ${colors.sub}`}>{s.shiftType}</span>
                         </div>
                       </div>

@@ -11,6 +11,17 @@ import useFetch from '../../hooks/useFetch'
 
 const TYPE_MAP = { permisos: 'leave', incapacidades: 'medical', vacaciones: 'vacation', extras: 'overtime' }
 
+const fmtTime = (t) => {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const tf = localStorage.getItem('timeFormat') || '24h'
+  if (tf === '12h') {
+    const hr = parseInt(h)
+    return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`
+  }
+  return `${h}:${m}`
+}
+
 export default function NewRequestPage() {
   const [activeTab, setActiveTab] = useState('permisos')
   const { t, lang } = useLang()
@@ -137,7 +148,7 @@ export default function NewRequestPage() {
                   <label className="text-xs font-semibold text-gray-600 block mb-1.5">{es ? 'Tu turno' : 'Your shift'}</label>
                   <select value={swapShift} onChange={e => setSwapShift(e.target.value)} className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none">
                     <option value="">{es ? 'Selecciona...' : 'Select...'}</option>
-                    {shifts.map(s => <option key={s.id} value={s.id}>{fmtDate(s.date)} {s.startTime?.slice(0,5)}-{s.endTime?.slice(0,5)}</option>)}
+                    {shifts.map(s => <option key={s.id} value={s.id}>{fmtDate(s.date)} {fmtTime(s.startTime)}-{fmtTime(s.endTime)}</option>)}
                   </select>
                 </div>
                 <div>
@@ -203,7 +214,7 @@ export default function NewRequestPage() {
                             <span className="material-symbols-outlined text-[13px]">event</span>
                             <span>{fmtDate(sw.requesterShift?.date)}</span>
                             <span className="text-gray-300">|</span>
-                            <span>{sw.requesterShift?.startTime?.slice(0,5)}-{sw.requesterShift?.endTime?.slice(0,5)}</span>
+                            <span>{fmtTime(sw.requesterShift?.startTime)}-{fmtTime(sw.requesterShift?.endTime)}</span>
                             <span className="capitalize text-gray-300">({sw.requesterShift?.shiftType})</span>
                           </div>
                           {sw.reason && <p className="text-xs text-gray-400 mt-1 italic truncate">"{sw.reason}"</p>}

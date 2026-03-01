@@ -158,7 +158,7 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval)
   }, [user, refresh])
 
-  // Sync currency from backend after user is set
+  // Sync currency and timeFormat from backend after user is set
   const syncCurrency = useCallback(async () => {
     const token = localStorage.getItem('token')
     if (!token) return
@@ -168,6 +168,12 @@ export function AuthProvider({ children }) {
         const json = await res.json()
         const c = json?.data?.currency || json?.currency
         if (c) localStorage.setItem('currency', c)
+      }
+      const loc = await fetch('http://localhost:3000/api/settings/localization', { headers: { Authorization: `Bearer ${token}` } })
+      if (loc.ok) {
+        const lj = await loc.json()
+        const d = lj?.data || lj
+        if (d?.timeFormat) localStorage.setItem('timeFormat', d.timeFormat)
       }
     } catch {}
   }, [])

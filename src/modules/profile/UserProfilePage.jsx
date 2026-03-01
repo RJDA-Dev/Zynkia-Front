@@ -19,6 +19,7 @@ export default function UserProfilePage() {
   const es = lang === 'es'
   const toast = useToast()
   const [tab, setTab] = useState('profile')
+  const isAdmin = user?.role === 'admin' || user?.role === 'coordinator'
 
   const { data: meRaw } = useFetch(() => auth.me(), { key: 'auth-me' })
   const me = meRaw?.data?.data || meRaw?.data || {}
@@ -34,7 +35,7 @@ export default function UserProfilePage() {
 
   const tabs = [
     { key: 'profile', label: es ? 'Perfil' : 'Profile', icon: 'person' },
-    { key: 'localization', label: es ? 'Localización' : 'Localization', icon: 'public' },
+    ...(isAdmin ? [{ key: 'localization', label: es ? 'Localización' : 'Localization', icon: 'public' }] : []),
     { key: 'security', label: es ? 'Seguridad' : 'Security', icon: 'security' },
   ]
 
@@ -45,7 +46,7 @@ export default function UserProfilePage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">{form.name || user?.name}</h2>
           <p className="text-gray-500">{form.email || user?.email}</p>
-          <Badge color="primary" dot>{me.role || user?.role || 'Admin'}</Badge>
+          <Badge color="primary" dot>{me.role || user?.role || 'Employee'}</Badge>
         </div>
       </div>
 
@@ -80,7 +81,7 @@ export default function UserProfilePage() {
         </div>
       )}
 
-      {tab === 'localization' && <LocalizationTab es={es} t={t} />}
+      {tab === 'localization' && isAdmin && <LocalizationTab es={es} t={t} />}
       {tab === 'security' && <SecurityTab es={es} t={t} />}
     </div>
   )
@@ -176,7 +177,7 @@ function SecurityTab({ es, t }) {
         <div className="p-6">
           <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <span className="material-symbols-outlined text-gray-400">lock</span>
-            <p className="text-sm text-gray-600">{es ? 'La contraseña se gestiona desde el proveedor de identidad. Contacta al administrador.' : 'Password is managed by the identity provider. Contact your administrator.'}</p>
+            <p className="text-sm text-gray-600">{es ? 'La contraseña se gestiona desde Keycloak. Contacta al administrador.' : 'Password is managed by Keycloak. Contact your administrator.'}</p>
           </div>
         </div>
       </Card>

@@ -122,6 +122,7 @@ export const portal = {
   createSwap: (data) => api.post('/employee/swaps', data),
   respondSwap: (id, accept) => api.patch(`/employee/swaps/${id}/respond`, { accept }),
   cancelSwap: (id) => api.patch(`/employee/swaps/${id}/cancel`),
+  payHistory: () => api.get('/employee/pay-history'),
 }
 
 export const notifications = {

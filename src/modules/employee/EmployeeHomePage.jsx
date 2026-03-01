@@ -5,6 +5,18 @@ import useCurrency from '../../hooks/useCurrency'
 import useFetch from '../../hooks/useFetch'
 import { portal } from '../../api/services'
 
+const fmtTime = (t) => {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const tf = localStorage.getItem('timeFormat') || '24h'
+  if (tf === '12h') {
+    const hr = parseInt(h)
+    const ampm = hr >= 12 ? 'PM' : 'AM'
+    return `${hr % 12 || 12}:${m} ${ampm}`
+  }
+  return `${h}:${m}`
+}
+
 export default function EmployeeHomePage() {
   const { t, lang } = useLang()
   const { formatCurrency } = useCurrency()
@@ -35,7 +47,7 @@ export default function EmployeeHomePage() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 {es ? 'Proximo turno' : 'Next shift'}
               </span>
-              <h2 className="text-2xl lg:text-3xl font-bold mt-3">{nextShift ? `${nextShift.startTime?.slice(0,5)} - ${nextShift.endTime?.slice(0,5)}` : (es ? 'Sin turnos' : 'No shifts')}</h2>
+              <h2 className="text-2xl lg:text-3xl font-bold mt-3">{nextShift ? `${fmtTime(nextShift.startTime)} - ${fmtTime(nextShift.endTime)}` : (es ? 'Sin turnos' : 'No shifts')}</h2>
               {nextShift && <p className="text-white/70 text-sm mt-1 capitalize">{nextShift.shiftType} — {new Date(nextShift.date + 'T12:00:00').toLocaleDateString(es ? 'es-CO' : 'en-US', { weekday: 'long', day: 'numeric', month: 'short' })}</p>}
             </div>
             <div className="h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center backdrop-blur-sm shrink-0">
@@ -53,21 +65,18 @@ export default function EmployeeHomePage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Weekly hours */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-blue-600 text-[18px]">schedule</span>
             </div>
-            <span className="text-[10px] font-bold text-gray-400 uppercase leading-tight">{es ? 'Horas Semana' : 'Weekly Hours'}</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase leading-tight">{es ? 'Horas Mes' : 'Monthly Hours'}</span>
           </div>
-          <p className="text-xl font-bold text-gray-900">{stats.weeklyHours || 0}<span className="text-xs font-medium text-gray-400">/{stats.weeklyTarget || 48}h</span></p>
+          <p className="text-xl font-bold text-gray-900">{stats.monthlyHours || 0}<span className="text-xs font-medium text-gray-400">/{stats.monthlyTarget || 208}h</span></p>
           <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${Math.min(100, ((stats.weeklyHours || 0) / (stats.weeklyTarget || 48)) * 100)}%` }} />
+            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${Math.min(100, ((stats.monthlyHours || 0) / (stats.monthlyTarget || 208)) * 100)}%` }} />
           </div>
         </div>
-
-        {/* Base salary */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
@@ -78,8 +87,6 @@ export default function EmployeeHomePage() {
           <p className="text-lg font-bold text-gray-900 truncate">{formatCurrency(stats.baseSalary || 0)}</p>
           <p className="text-[10px] text-gray-400 mt-1">{es ? 'Valor hora:' : 'Hourly:'} <span className="font-semibold text-gray-500">{formatCurrency(stats.hourlyRate || 0)}</span></p>
         </div>
-
-        {/* Overtime */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-amber-100">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
@@ -90,8 +97,6 @@ export default function EmployeeHomePage() {
           <p className="text-lg font-bold text-amber-600 truncate">{formatCurrency(stats.overtimeAmount || 0)}</p>
           <p className="text-[10px] text-gray-400 mt-1">{stats.overtimeHours || 0}h {es ? 'registradas' : 'logged'}</p>
         </div>
-
-        {/* OT Paid */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
@@ -126,12 +131,11 @@ export default function EmployeeHomePage() {
             ))}
           </div>
         </div>
-
         <div>
           <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">{es ? 'Acciones Rapidas' : 'Quick Actions'}</h3>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { icon: 'assignment_turned_in', label: es ? 'Permiso' : 'Leave', bg: 'bg-purple-50 text-purple-600', to: '/employee/requests' },
+              { icon: 'receipt_long', label: es ? 'Pagos' : 'Payments', bg: 'bg-green-50 text-green-600', to: '/employee/payments' },
               { icon: 'swap_horiz', label: es ? 'Intercambio' : 'Swap', bg: 'bg-blue-50 text-blue-600', to: '/employee/requests' },
               { icon: 'beach_access', label: es ? 'Vacaciones' : 'Vacation', bg: 'bg-orange-50 text-orange-600', to: '/employee/requests' },
               { icon: 'calendar_month', label: es ? 'Horario' : 'Schedule', bg: 'bg-emerald-50 text-emerald-600', to: '/employee/schedule' },

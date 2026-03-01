@@ -24,6 +24,7 @@ const EmployeeHomePage = lazy(() => import('../modules/employee/EmployeeHomePage
 const EmployeeSchedulePage = lazy(() => import('../modules/employee/EmployeeSchedulePage'))
 const NewRequestPage = lazy(() => import('../modules/employee/NewRequestPage'))
 const EmployeeNotificationsPage = lazy(() => import('../modules/employee/EmployeeNotificationsPage'))
+const EmployeePaymentsPage = lazy(() => import('../modules/employee/EmployeePaymentsPage'))
 
 function Loader() {
   return (
@@ -65,6 +66,7 @@ export default function AppRouter() {
         <Route path="/employee/schedule" element={<L><EmployeeSchedulePage /></L>} />
         <Route path="/employee/requests" element={<L><NewRequestPage /></L>} />
         <Route path="/employee/notifications" element={<L><EmployeeNotificationsPage /></L>} />
+        <Route path="/employee/payments" element={<L><EmployeePaymentsPage /></L>} />
         <Route path="/employee/profile" element={<L><UserProfilePage /></L>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
