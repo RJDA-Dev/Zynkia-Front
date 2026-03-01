@@ -12,8 +12,8 @@ export default function EmployeeHomePage() {
   const navigate = useNavigate()
   const { data: homeData, loading } = useFetch(() => portal.home(), { key: 'portal-home' })
   const { data: vacData } = useFetch(() => portal.vacationBalance(), { key: 'portal-vacation' })
-  const home = homeData?.data || {}
-  const vacation = vacData?.data || {}
+  const home = homeData?.data || homeData || {}
+  const vacation = vacData?.data || vacData || {}
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" /></div>
 
@@ -21,6 +21,7 @@ export default function EmployeeHomePage() {
   const stats = home.stats || {}
   const isNight = nextShift?.shiftType === 'night'
   const shiftGradient = isNight ? 'from-gray-900 to-gray-800' : 'from-primary to-purple-800'
+  const hasShiftToday = nextShift?.date === new Date().toISOString().split('T')[0]
 
   return (
     <>
@@ -47,15 +48,16 @@ export default function EmployeeHomePage() {
             </div>
           </div>
           <div className="bg-white p-4">
-            <button className={`w-full h-12 ${isNight ? 'bg-gray-900 hover:bg-black' : 'bg-gray-900 hover:bg-gray-800'} active:scale-[0.98] transition-all rounded-xl flex items-center justify-center gap-2 text-white font-semibold shadow-lg`}>
+            <button disabled={!hasShiftToday} className={`w-full h-12 ${!hasShiftToday ? 'bg-gray-300 cursor-not-allowed' : isNight ? 'bg-gray-900 hover:bg-black' : 'bg-gray-900 hover:bg-gray-800'} active:scale-[0.98] transition-all rounded-xl flex items-center justify-center gap-2 text-white font-semibold shadow-lg`}>
               <span className="material-symbols-outlined">fingerprint</span>
-              {es ? 'Marcar Asistencia' : 'Check In'}
+              {!hasShiftToday ? (es ? 'Sin turno hoy' : 'No shift today') : (es ? 'Marcar Asistencia' : 'Check In')}
             </button>
           </div>
         </div>
 
         {/* Stats column */}
-        <div className="space-y-4">
+        <div className="space-y-3">
+          {/* Weekly hours */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -68,14 +70,28 @@ export default function EmployeeHomePage() {
               <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, ((stats.weeklyHours || 0) / (stats.weeklyTarget || 48)) * 100)}%` }} />
             </div>
           </div>
+          {/* Base salary */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                 <span className="material-symbols-outlined text-emerald-600 text-[18px]">payments</span>
               </div>
               <span className="text-[10px] font-bold text-gray-400 uppercase">{es ? 'Salario Base' : 'Base Salary'}</span>
             </div>
             <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.baseSalary || 0)}</p>
+          </div>
+          {/* Overtime value */}
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                <span className="material-symbols-outlined text-amber-600 text-[18px]">more_time</span>
+              </div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase">{es ? 'Horas Extra' : 'Overtime'}</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-lg font-bold text-amber-600">{formatCurrency(stats.overtimeAmount || 0)}</p>
+              <span className="text-xs text-gray-400">{stats.overtimeHours || 0}h</span>
+            </div>
           </div>
         </div>
       </div>
@@ -89,7 +105,6 @@ export default function EmployeeHomePage() {
           </div>
           <div className="divide-y divide-gray-50">
             {[
-              { icon: 'more_time', color: 'text-amber-600 bg-amber-50', label: t('overtimeHours'), value: `${stats.overtimeHours || 0}h` },
               { icon: 'beach_access', color: 'text-cyan-600 bg-cyan-50', label: t('vacationDays'), value: `${vacation.available || 0} ${es ? 'disponibles' : 'available'}` },
               { icon: 'pending_actions', color: 'text-purple-600 bg-purple-50', label: t('pendingRequests'), value: `${stats.pendingRequests || 0}` },
             ].map((item, i) => (

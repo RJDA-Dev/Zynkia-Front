@@ -57,6 +57,8 @@ export const requests = {
   create: (data) => api.post('/requests', data),
   approve: (id) => api.patch(`/requests/${id}/approve`),
   reject: (id) => api.patch(`/requests/${id}/reject`),
+  uploadAttachment: (id, file) => { const fd = new FormData(); fd.append('file', file); return api.post(`/requests/${id}/attachment`, fd) },
+  getAttachment: (id) => api.get(`/requests/${id}/attachment`),
 }
 
 export const schedule = {
@@ -112,12 +114,14 @@ export const settings = {
 export const portal = {
   home: () => api.get('/employee/home'),
   schedule: () => api.get('/employee/schedule'),
+  teamSchedule: () => api.get('/employee/team-schedule'),
   vacationBalance: () => api.get('/employee/vacation-balance'),
   notifications: () => api.get('/employee/notifications'),
   coworkers: () => api.get('/employee/coworkers'),
   swaps: () => api.get('/employee/swaps'),
   createSwap: (data) => api.post('/employee/swaps', data),
   respondSwap: (id, accept) => api.patch(`/employee/swaps/${id}/respond`, { accept }),
+  cancelSwap: (id) => api.patch(`/employee/swaps/${id}/cancel`),
 }
 
 export const notifications = {
