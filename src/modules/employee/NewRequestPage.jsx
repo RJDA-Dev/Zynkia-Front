@@ -29,7 +29,7 @@ export default function NewRequestPage() {
   const toast = useToast()
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ reason: '', startDate: '', endDate: '', comments: '', file: null })
+  const [form, setForm] = useState({ reason: '', startDate: '', endDate: '', comments: '', file: null, startTime: '', endTime: '' })
   const [swapShift, setSwapShift] = useState('')
   const [swapTarget, setSwapTarget] = useState('')
   const [swapReason, setSwapReason] = useState('')
@@ -48,19 +48,23 @@ export default function NewRequestPage() {
   const shifts = Array.isArray(mySchedule) ? mySchedule : (mySchedule?.data || [])
   const swaps = Array.isArray(swapsRaw) ? swapsRaw : (swapsRaw?.data || [])
   const myEmployeeId = homeData?.employeeId || homeData?.data?.employeeId
+  const myHourlyRate = homeData?.data?.stats?.hourlyRate || homeData?.stats?.hourlyRate || 0
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
   const days = form.startDate && form.endDate ? Math.max(1, Math.ceil((new Date(form.endDate) - new Date(form.startDate)) / 86400000) + 1) : 0
 
   const handleSubmit = async () => {
     if (!form.reason || !form.startDate || !form.endDate) { toast.error(es ? 'Completa los campos requeridos' : 'Fill required fields'); return }
+    if (activeTab === 'extras' && (!form.startTime || !form.endTime)) { toast.error(es ? 'Indica hora inicio y fin' : 'Set start and end time'); return }
     setSubmitting(true)
     try {
-      const res = await requests.create({ type: TYPE_MAP[activeTab] || 'leave', reason: form.reason, startDate: form.startDate, endDate: form.endDate, comments: form.comments || undefined, days })
+      const payload = { type: TYPE_MAP[activeTab] || 'leave', reason: form.reason, startDate: form.startDate, endDate: form.endDate, comments: form.comments || undefined, days }
+      if (activeTab === 'extras') { payload.startTime = form.startTime; payload.endTime = form.endTime }
+      const res = await requests.create(payload)
       const reqId = res?.id || res?.data?.id
       if (form.file && reqId) await requests.uploadAttachment(reqId, form.file)
       toast.success(es ? 'Solicitud enviada' : 'Request submitted')
-      setForm({ reason: '', startDate: '', endDate: '', comments: '', file: null })
+      setForm({ reason: '', startDate: '', endDate: '', comments: '', file: null, startTime: '', endTime: '' })
     } catch (e) { toast.error(e?.response?.data?.message || 'Error') }
     finally { setSubmitting(false) }
   }
@@ -270,6 +274,43 @@ export default function NewRequestPage() {
                     <input type="date" value={form.endDate} onChange={set('endDate')} min={form.startDate} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
                   </div>
                 </div>
+                {activeTab === 'extras' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Hora inicio' : 'Start time'}</label>
+                      <input type="time" value={form.startTime} onChange={set('startTime')} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Hora fin' : 'End time'}</label>
+                      <input type="time" value={form.endTime} onChange={set('endTime')} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'extras' && form.startTime && form.endTime && form.startDate && (() => {
+                  const [sh, sm] = form.startTime.split(':').map(Number)
+                  const [eh, em] = form.endTime.split(':').map(Number)
+                  let hrs = (eh + em / 60) - (sh + sm / 60); if (hrs < 0) hrs += 24
+                  const d = new Date(form.startDate + 'T12:00:00')
+                  const isSun = d.getDay() === 0
+                  const isNight = sh >= 21 || sh < 6 || eh >= 21
+                  const type = isSun && isNight ? 'dominical_nocturna' : isSun ? 'dominical_diurna' : isNight ? 'nocturna' : 'diurna'
+                  const mult = { diurna: 1.25, nocturna: 1.75, dominical_diurna: 2.0, dominical_nocturna: 2.5 }[type]
+                  const labels = { diurna: es ? 'Diurna' : 'Daytime', nocturna: es ? 'Nocturna' : 'Night', dominical_diurna: es ? 'Dominical Diurna' : 'Sunday Day', dominical_nocturna: es ? 'Dominical Nocturna' : 'Sunday Night' }
+                  return (
+                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
+                        <span className="material-symbols-outlined text-amber-600 text-lg">calculate</span>
+                        {es ? 'Calculo de Recargo' : 'Surcharge Calculation'}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div><p className="text-amber-600/70 uppercase font-bold">{es ? 'Horas' : 'Hours'}</p><p className="text-sm font-bold text-amber-900">{hrs.toFixed(1)}h</p></div>
+                        <div><p className="text-amber-600/70 uppercase font-bold">{es ? 'Tipo' : 'Type'}</p><p className="text-sm font-bold text-amber-900">{labels[type]}</p></div>
+                        <div><p className="text-amber-600/70 uppercase font-bold">{es ? 'Recargo' : 'Rate'}</p><p className="text-sm font-bold text-amber-900">{mult}x</p></div>
+                        <div><p className="text-amber-600/70 uppercase font-bold">{es ? 'Estimado' : 'Estimate'}</p><p className="text-sm font-bold text-amber-900">~${Math.round(myHourlyRate * hrs * mult).toLocaleString('es-CO')}</p></div>
+                      </div>
+                    </div>
+                  )
+                })()}
                 {days > 0 && (
                   <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-2 text-sm">
                     <span className="material-symbols-outlined text-primary text-lg">info</span>
