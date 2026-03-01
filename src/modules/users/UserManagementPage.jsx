@@ -32,7 +32,7 @@ export default function UserManagementPage() {
   const [activeTab, setActiveTab] = useState('users')
   const [search, setSearch] = useState('')
   const { isOnline } = usePresence()
-  const { data, loading, refetch: refetchUsers } = useFetch(() => usersService.list({ search }), { deps: [search], key: `users-${search}` })
+  const { data, loading, invalidate: refetchUsers } = useFetch(() => usersService.list({ search }), { deps: [search], key: `users-${search}` })
   const { data: rolesData, refetch: refetchRoles } = useFetch(() => usersService.roles(), { key: 'roles' })
 
   const list = data?.data || data || []

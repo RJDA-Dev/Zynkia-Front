@@ -38,19 +38,23 @@ export default function RequestApprovalPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const { data, loading, refetch } = useFetch(() => reqService.list(filter === 'all' ? {} : { status: filter }), { key: `requests-${filter}`, deps: [filter] })
+  const { data: allData, refetch: refetchAll } = useFetch(() => reqService.list({}), { key: 'requests-all-stats' })
   const { mutate: approve } = useMutation((id) => reqService.approve(id))
   const { mutate: reject } = useMutation((id) => reqService.reject(id))
 
   const raw = data?.data || data || []
+  const allRaw = allData?.data || allData || []
   const list = raw.filter(r => {
     if (search && !r.employee?.name?.toLowerCase().includes(search.toLowerCase())) return false
     if (typeFilter && r.type !== typeFilter) return false
     return true
   })
 
-  const pendingCount = raw.filter(r => r.status === 'pending').length
-  const approvedToday = raw.filter(r => r.status === 'approved' && r.reviewedAt?.startsWith(new Date().toISOString().slice(0, 10))).length
-  const rejectedToday = raw.filter(r => r.status === 'rejected' && r.reviewedAt?.startsWith(new Date().toISOString().slice(0, 10))).length
+  const today = new Date().toISOString().slice(0, 10)
+  const pendingCount = allRaw.filter(r => r.status === 'pending').length
+  const approvedToday = allRaw.filter(r => r.status === 'approved' && r.reviewedAt?.startsWith(today)).length
+  const rejectedToday = allRaw.filter(r => r.status === 'rejected' && r.reviewedAt?.startsWith(today)).length
+  const teamSize = new Set(allRaw.map(r => r.employeeId)).size
 
   const handleAction = async (action, id) => {
     try {
@@ -59,6 +63,7 @@ export default function RequestApprovalPage() {
       toast.success(action === 'approve' ? (es ? 'Aprobada' : 'Approved') : (es ? 'Rechazada' : 'Rejected'))
       setDetail(null)
       refetch()
+      refetchAll()
     } catch { toast.error('Error') }
   }
 
@@ -90,7 +95,7 @@ export default function RequestApprovalPage() {
         <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(pendingCount)} icon="pending_actions" />
         <StatCard label={es ? 'Aprobadas Hoy' : 'Approved Today'} value={String(approvedToday)} icon="check_circle" iconColor="text-emerald-600 bg-emerald-50" />
         <StatCard label={es ? 'Rechazadas Hoy' : 'Rejected Today'} value={String(rejectedToday)} icon="cancel" iconColor="text-red-600 bg-red-50" />
-        <StatCard label={es ? 'Total Equipo' : 'Team Total'} value={String(new Set(raw.map(r => r.employeeId)).size)} icon="group" iconColor="text-blue-600 bg-blue-50" />
+        <StatCard label={es ? 'Total Equipo' : 'Team Total'} value={String(teamSize)} icon="group" iconColor="text-blue-600 bg-blue-50" />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-3 items-end">

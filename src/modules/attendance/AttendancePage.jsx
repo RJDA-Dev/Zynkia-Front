@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button'
 import Select from '../../components/ui/Select'
 import Table from '../../components/ui/Table'
 import Tabs from '../../components/ui/Tabs'
+import DatePicker from '../../components/ui/DatePicker'
 import { useLang } from '../../context/LangContext'
 
 const statusColors = { on_time: 'success', active: 'info', late: 'warning', absent: 'danger' }
@@ -109,7 +110,7 @@ export default function AttendancePage() {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <p className="text-gray-500">{es ? 'Control de entrada y salida de empleados.' : 'Employee check-in and check-out control.'}</p>
         <div className="flex gap-3 items-center">
-          {tab === 'daily' && <input type="date" value={date} onChange={e => setDate(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />}
+          {tab === 'daily' && <DatePicker value={date} onChange={setDate} />}
           <div className="relative" ref={exportRef}>
             <Button variant="secondary" icon="download" onClick={() => setShowExport(!showExport)}>{t('export')}</Button>
             {showExport && (
