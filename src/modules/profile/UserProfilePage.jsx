@@ -29,7 +29,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (me?.name || user?.name) setForm({ name: me.name || user?.name || '', email: me.email || user?.email || '', phone: me.phone || '' })
-  }, [me, user])
+  }, [me?.name, me?.email, me?.phone, user?.name, user?.email])
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target?.value ?? e }))
 
