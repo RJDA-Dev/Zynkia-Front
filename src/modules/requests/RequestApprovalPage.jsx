@@ -5,7 +5,8 @@ import useCurrency from '../../hooks/useCurrency'
 import StatCard from '../../components/ui/StatCard'
 import Badge from '../../components/ui/Badge'
 import Avatar from '../../components/ui/Avatar'
-import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 import Modal from '../../components/ui/Modal'
 import { useLang } from '../../context/LangContext'
 import { useMutation } from '../../hooks/useFetch'
@@ -13,7 +14,8 @@ import { useToast } from '../../context/ToastContext'
 
 const typeIcons = { overtime: 'more_time', leave: 'assignment_turned_in', medical: 'medical_services', vacation: 'beach_access' }
 const typeColors = { overtime: 'warning', leave: 'info', medical: 'danger', vacation: 'purple' }
-const surchargeLabels = { diurna: 'Diurna', nocturna: 'Nocturna', dominical_diurna: 'Dominical Diurna', dominical_nocturna: 'Dominical Nocturna', festivo: 'Festivo' }
+const typeLabels = { overtime: { es: 'Horas Extra', en: 'Overtime' }, leave: { es: 'Personal', en: 'Leave' }, medical: { es: 'Médica', en: 'Medical' }, vacation: { es: 'Vacaciones', en: 'Vacation' } }
+const surchargeLabels = { diurna: 'Diurna', nocturna: 'Nocturna', dominical_diurna: 'Dom. Diurna', dominical_nocturna: 'Dom. Nocturna', festivo: 'Festivo' }
 
 const fmtTime = (t) => {
   if (!t) return ''
@@ -23,6 +25,11 @@ const fmtTime = (t) => {
   return `${h}:${m}`
 }
 
+const fmtDate = (d, es) => {
+  if (!d) return ''
+  return new Date(d + 'T12:00:00').toLocaleDateString(es ? 'es-CO' : 'en-US', { day: 'numeric', month: 'short' })
+}
+
 export default function RequestApprovalPage() {
   const { t, lang } = useLang()
   const es = lang === 'es'
@@ -30,13 +37,22 @@ export default function RequestApprovalPage() {
   const { formatCurrency: fc } = useCurrency()
   const [detail, setDetail] = useState(null)
   const [filter, setFilter] = useState('pending')
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
   const { data, loading, refetch } = useFetch(() => reqService.list(filter === 'all' ? {} : { status: filter }), { key: `requests-${filter}`, deps: [filter] })
   const { mutate: approve } = useMutation((id) => reqService.approve(id))
   const { mutate: reject } = useMutation((id) => reqService.reject(id))
 
-  const list = data?.data || data || []
-  const otCount = list.filter(r => r.type === 'overtime').length
-  const otTotal = list.filter(r => r.type === 'overtime').reduce((s, r) => s + (Number(r.overtimeAmount) || 0), 0)
+  const raw = data?.data || data || []
+  const list = raw.filter(r => {
+    if (search && !r.employee?.name?.toLowerCase().includes(search.toLowerCase())) return false
+    if (typeFilter && r.type !== typeFilter) return false
+    return true
+  })
+
+  const pendingCount = raw.filter(r => r.status === 'pending').length
+  const approvedToday = raw.filter(r => r.status === 'approved' && r.reviewedAt?.startsWith(new Date().toISOString().slice(0, 10))).length
+  const rejectedToday = raw.filter(r => r.status === 'rejected' && r.reviewedAt?.startsWith(new Date().toISOString().slice(0, 10))).length
 
   const handleAction = async (action, id) => {
     try {
@@ -48,95 +64,157 @@ export default function RequestApprovalPage() {
     } catch { toast.error('Error') }
   }
 
+  const typeOpts = [
+    { value: '', label: es ? 'Todos los tipos' : 'All types' },
+    { value: 'vacation', label: es ? 'Vacaciones' : 'Vacation' },
+    { value: 'leave', label: es ? 'Personal' : 'Leave' },
+    { value: 'medical', label: es ? 'Médica' : 'Medical' },
+    { value: 'overtime', label: es ? 'Horas Extra' : 'Overtime' },
+  ]
+
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div>
-        <p className="text-gray-500">{es ? 'Gestione las solicitudes pendientes de su equipo.' : "Manage your team's pending requests."}</p>
+        <h1 className="text-2xl font-black text-gray-900 tracking-tight">{es ? 'Aprobación de Solicitudes' : 'Request Approval'}</h1>
+        <p className="text-gray-500 mt-1">{es ? 'Gestione las solicitudes pendientes de su equipo de manera eficiente.' : "Manage your team's pending requests efficiently."}</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(list.filter(r => r.status === 'pending').length || list.length)} icon="pending_actions" />
-        <StatCard label={es ? 'Horas Extra' : 'Overtime'} value={String(otCount)} icon="more_time" iconColor="text-amber-600 bg-amber-50" />
-        <StatCard label={es ? 'Costo Extras' : 'OT Cost'} value={fc(otTotal)} icon="payments" iconColor="text-red-600 bg-red-50" />
-        <StatCard label={es ? 'Otros' : 'Other'} value={String(list.length - otCount)} icon="description" iconColor="text-blue-600 bg-blue-50" />
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(pendingCount)} icon="pending_actions" />
+        <StatCard label={es ? 'Aprobadas Hoy' : 'Approved Today'} value={String(approvedToday)} icon="check_circle" iconColor="text-emerald-600 bg-emerald-50" />
+        <StatCard label={es ? 'Rechazadas Hoy' : 'Rejected Today'} value={String(rejectedToday)} icon="cancel" iconColor="text-red-600 bg-red-50" />
+        <StatCard label={es ? 'Total Equipo' : 'Team Total'} value={String(new Set(raw.map(r => r.employeeId)).size)} icon="group" iconColor="text-blue-600 bg-blue-50" />
       </div>
 
-      <div className="flex gap-2">
-        {[
-          { key: 'pending', label: es ? 'Pendientes' : 'Pending', icon: 'hourglass_top' },
-          { key: 'approved', label: es ? 'Aprobadas' : 'Approved', icon: 'check_circle' },
-          { key: 'rejected', label: es ? 'Rechazadas' : 'Rejected', icon: 'cancel' },
-          { key: 'all', label: es ? 'Todas' : 'All', icon: 'list' },
-        ].map(f => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f.key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            <span className="material-symbols-outlined text-[14px]">{f.icon}</span>{f.label}
-          </button>
-        ))}
+      {/* Filters */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-3 items-end">
+        <div className="flex-1 min-w-0">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">{es ? 'Buscar por empleado' : 'Search by employee'}</label>
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">person_search</span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={es ? 'Nombre...' : 'Name...'}
+              className="w-full pl-10 pr-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+          </div>
+        </div>
+        <div className="w-full sm:w-48">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">{es ? 'Filtrar por tipo' : 'Filter by type'}</label>
+          <Select value={typeFilter} onChange={setTypeFilter} options={typeOpts} />
+        </div>
+        <div className="flex gap-2">
+          {[
+            { key: 'pending', label: es ? 'Pendientes' : 'Pending' },
+            { key: 'approved', label: es ? 'Aprobadas' : 'Approved' },
+            { key: 'rejected', label: es ? 'Rechazadas' : 'Rejected' },
+            { key: 'all', label: es ? 'Todas' : 'All' },
+          ].map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${filter === f.key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {loading ? <div className="text-center text-gray-400 py-12">{es ? 'Cargando...' : 'Loading...'}</div> : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
-          {list.length === 0 && <p className="text-center text-gray-400 py-12">{es ? 'No hay solicitudes pendientes' : 'No pending requests'}</p>}
+      {/* Cards Grid */}
+      {loading ? (
+        <div className="text-center text-gray-400 py-12"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>
+      ) : list.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-5xl text-gray-300 block mb-2">inbox</span>
+          <p className="text-gray-400">{es ? 'No hay solicitudes' : 'No requests'}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {list.map(r => {
             const isOT = r.type === 'overtime'
+            const days = r.days || (r.startDate && r.endDate ? Math.max(1, Math.round((new Date(r.endDate) - new Date(r.startDate)) / 86400000) + 1) : 1)
             return (
-              <div key={r.id} className="p-4 sm:p-5 hover:bg-gray-50/50 transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Avatar name={r.employee?.name || '?'} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-gray-900">{r.employee?.name}</span>
-                        <span className="text-xs text-gray-400">{r.employee?.roleTitle}</span>
+              <div key={r.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                {/* Header */}
+                <div className="p-5 pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={r.employee?.name || '?'} size="md" />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{r.employee?.name}</p>
+                        <p className="text-xs text-gray-400">{r.employee?.roleTitle}</p>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <Badge color={typeColors[r.type] || 'neutral'}>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[12px]">{typeIcons[r.type] || 'description'}</span>
-                            {r.type}
-                          </span>
-                        </Badge>
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[13px]">event</span>
-                          {r.startDate}
-                        </span>
-                        {isOT && r.surchargeType && (
-                          <Badge color="warning">{surchargeLabels[r.surchargeType] || r.surchargeType} {r.surchargeMultiplier}x</Badge>
-                        )}
-                      </div>
-                      {isOT && r.overtimeHours && (
-                        <p className="text-xs text-amber-600 font-semibold mt-1">
-                          {fmtTime(r.startTime)}-{fmtTime(r.endTime)} — {r.overtimeHours}h — {fc(Number(r.overtimeAmount) || 0)}
-                        </p>
-                      )}
-                      {r.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{r.description}</p>}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {r.status !== 'pending' && (
-                      <Badge color={r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'danger' : 'neutral'}>
-                        {r.status === 'approved' ? (es ? 'Aprobada' : 'Approved') : r.status === 'rejected' ? (es ? 'Rechazada' : 'Rejected') : r.status}
-                      </Badge>
-                    )}
-                    {isOT && (
-                      <button onClick={() => setDetail(r)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 font-medium transition-colors">
-                        <span className="material-symbols-outlined text-[14px]">visibility</span>
-                        {es ? 'Detalle' : 'Detail'}
-                      </button>
-                    )}
-                    {r.status === 'pending' && (<>
-                      <button onClick={() => handleAction('reject', r.id)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors">
-                        <span className="material-symbols-outlined text-[14px]">close</span>
-                        {t('reject')}
-                      </button>
-                      <button onClick={() => isOT ? setDetail(r) : handleAction('approve', r.id)} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium transition-colors">
-                        <span className="material-symbols-outlined text-[14px]">check</span>
-                        {t('approve')}
-                      </button>
-                    </>)}
+                    <Badge color={typeColors[r.type] || 'neutral'}>
+                      {typeLabels[r.type]?.[es ? 'es' : 'en'] || r.type}
+                    </Badge>
                   </div>
                 </div>
+
+                {/* Date */}
+                <div className="px-5 pb-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <span className="material-symbols-outlined text-gray-400 text-lg">event</span>
+                    <span className="font-medium">
+                      {fmtDate(r.startDate, es)}{r.endDate && r.endDate !== r.startDate ? ` - ${fmtDate(r.endDate, es)}` : ''}
+                      <span className="text-gray-400 ml-1">({days} {days === 1 ? (es ? 'día' : 'day') : (es ? 'días' : 'days')})</span>
+                    </span>
+                  </div>
+                  {isOT && r.startTime && (
+                    <div className="flex items-center gap-2 text-sm text-amber-600 mt-1">
+                      <span className="material-symbols-outlined text-lg">schedule</span>
+                      <span className="font-semibold">{fmtTime(r.startTime)} - {fmtTime(r.endTime)} ({r.overtimeHours}h)</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div className="px-5 pb-3 flex-1">
+                  <p className="text-sm text-gray-600 leading-relaxed">{r.description || (es ? 'Sin descripción' : 'No description')}</p>
+                  {isOT && r.surchargeType && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-lg">
+                      <span className="material-symbols-outlined text-[14px]">payments</span>
+                      {surchargeLabels[r.surchargeType]} {r.surchargeMultiplier}x — {fc(Number(r.overtimeAmount) || 0)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Attachment placeholder */}
+                <div className="px-5 pb-3">
+                  {r.attachmentKey ? (
+                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                      <span className="material-symbols-outlined text-primary text-lg">attach_file</span>
+                      <span className="text-primary font-medium truncate flex-1">{r.attachmentKey.split('/').pop()}</span>
+                      <span className="material-symbols-outlined text-gray-400 text-lg cursor-pointer hover:text-primary">visibility</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-gray-300 italic">
+                      <span className="material-symbols-outlined text-[16px]">attach_file</span>
+                      {es ? 'Sin archivos adjuntos' : 'No attachments'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status badge for non-pending */}
+                {r.status !== 'pending' && (
+                  <div className="px-5 pb-3">
+                    <Badge color={r.status === 'approved' ? 'success' : 'danger'}>
+                      {r.status === 'approved' ? (es ? 'Aprobada' : 'Approved') : (es ? 'Rechazada' : 'Rejected')}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {r.status === 'pending' && (
+                  <div className="px-5 pb-5 pt-1 flex gap-3">
+                    <button onClick={() => handleAction('reject', r.id)}
+                      className="flex-1 h-10 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors">
+                      <span className="material-symbols-outlined text-lg">close</span>
+                      {es ? 'Rechazar' : 'Reject'}
+                    </button>
+                    <button onClick={() => isOT ? setDetail(r) : handleAction('approve', r.id)}
+                      className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+                      <span className="material-symbols-outlined text-lg">check</span>
+                      {es ? 'Aprobar' : 'Approve'}
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -147,7 +225,6 @@ export default function RequestApprovalPage() {
       {detail && (
         <Modal open={!!detail} title={es ? 'Aprobar Horas Extra' : 'Approve Overtime'} icon="more_time" onClose={() => setDetail(null)} size="md">
           <div className="p-6 space-y-5">
-            {/* Employee header */}
             <div className="flex items-center gap-4">
               <Avatar name={detail.employee?.name} size="lg" />
               <div className="flex-1">
@@ -160,15 +237,14 @@ export default function RequestApprovalPage() {
               </div>
             </div>
 
-            {/* Schedule card */}
             <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm">
                 <span className="material-symbols-outlined text-primary text-lg">event</span>
-                <span className="text-sm font-semibold text-gray-900">{new Date(detail.startDate + 'T12:00:00').toLocaleDateString(es ? 'es-CO' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                <span className="text-sm font-semibold">{fmtDate(detail.startDate, es)}</span>
               </div>
               <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm">
                 <span className="material-symbols-outlined text-primary text-lg">schedule</span>
-                <span className="text-sm font-semibold text-gray-900">{fmtTime(detail.startTime)} — {fmtTime(detail.endTime)}</span>
+                <span className="text-sm font-semibold">{fmtTime(detail.startTime)} — {fmtTime(detail.endTime)}</span>
               </div>
               <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm">
                 <span className="material-symbols-outlined text-amber-600 text-lg">timer</span>
@@ -183,7 +259,6 @@ export default function RequestApprovalPage() {
               </div>
             )}
 
-            {/* Cost breakdown — visual */}
             <div className="rounded-xl border border-amber-200 overflow-hidden">
               <div className="bg-amber-50 px-4 py-2.5 flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-600 text-lg">calculate</span>
@@ -210,7 +285,6 @@ export default function RequestApprovalPage() {
                   <span>{detail.overtimeHours}h</span>
                   <span className="material-symbols-outlined text-[14px]">close</span>
                   <span>{detail.surchargeMultiplier}x</span>
-                  <span className="material-symbols-outlined text-[14px]">drag_handle</span>
                 </div>
                 <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl p-4 text-center text-white">
                   <p className="text-xs uppercase font-bold text-white/70">{es ? 'Costo Total' : 'Total Cost'}</p>
@@ -219,11 +293,10 @@ export default function RequestApprovalPage() {
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3">
               <button onClick={() => handleAction('reject', detail.id)} className="flex-1 h-11 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
                 <span className="material-symbols-outlined text-lg">close</span>
-                {t('reject')}
+                {es ? 'Rechazar' : 'Reject'}
               </button>
               <button onClick={() => handleAction('approve', detail.id)} className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm">
                 <span className="material-symbols-outlined text-lg">check</span>

@@ -164,6 +164,7 @@ export function AuthProvider({ children }) {
     if (!token) return
     try {
       const res = await fetch('http://localhost:3000/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      if (res.status === 403) { logout(); return }
       if (res.ok) {
         const json = await res.json()
         const c = json?.data?.currency || json?.currency
