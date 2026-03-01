@@ -174,7 +174,7 @@ export function AuthProvider({ children }) {
   useEffect(() => { if (user) syncCurrency() }, [user, syncCurrency])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithMFA, handleCallback, refresh, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithMFA, handleCallback, refresh, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )
