@@ -156,6 +156,18 @@ export default function OvertimeRulesPage() {
                                     </td>
                                     <td className="px-4 py-2">
                                       {r.status === 'pending' && (
+                                        <div className="flex gap-2">
+                                          <button onClick={() => handleStatusChange(r.id, 'approved')}
+                                            className="text-[11px] font-semibold text-blue-600 hover:text-blue-800">
+                                            {es ? 'Aprobar' : 'Approve'}
+                                          </button>
+                                          <button onClick={() => handleStatusChange(r.id, 'rejected')}
+                                            className="text-[11px] font-semibold text-red-500 hover:text-red-700">
+                                            {es ? 'Rechazar' : 'Reject'}
+                                          </button>
+                                        </div>
+                                      )}
+                                      {r.status === 'approved' && (
                                         <button onClick={() => handleStatusChange(r.id, 'paid')}
                                           className="text-[11px] font-semibold text-primary hover:text-purple-800">
                                           {es ? 'Marcar pagado' : 'Mark paid'}

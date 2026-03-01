@@ -158,6 +158,24 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval)
   }, [user, refresh])
 
+  // Sync currency from backend after user is set
+  const syncCurrency = useCallback(async () => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    try {
+      const res = await fetch('http://localhost:3000/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        const json = await res.json()
+        const c = json?.data?.currency || json?.currency
+        if (c) localStorage.setItem('currency', c)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (user) syncCurrency()
+  }, [user, syncCurrency])
+
   return (
     <AuthContext.Provider value={{ user, login, loginWithMFA, handleCallback, logout, refresh, loading, isAuthenticated: !!user }}>
       {children}
