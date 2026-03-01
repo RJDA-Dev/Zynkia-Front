@@ -5,7 +5,7 @@ const LangContext = createContext(null)
 const translations = {
   es: {
     dashboard: 'Panel Principal', employees: 'Empleados', attendance: 'Asistencia',
-    payroll: 'Nómina', overtime: 'Horas Extra', requests: 'Solicitudes',
+    payroll: 'Nómina', overtime: 'Horas Extra', requests: 'Solicitudes', sanctions: 'Sanciones',
     schedule: 'Calendario', reports: 'Reportes', users: 'Usuarios',
     departments: 'Departamentos', onboarding: 'Onboarding', settings: 'Configuración',
     general: 'General', localization: 'Localización', security: 'Seguridad',
@@ -106,7 +106,7 @@ const translations = {
   },
   en: {
     dashboard: 'Dashboard', employees: 'Employees', attendance: 'Attendance',
-    payroll: 'Payroll', overtime: 'Overtime', requests: 'Requests',
+    payroll: 'Payroll', overtime: 'Overtime', requests: 'Requests', sanctions: 'Sanctions',
     schedule: 'Schedule', reports: 'Reports', users: 'Users',
     departments: 'Departments', onboarding: 'Onboarding', settings: 'Settings',
     general: 'General', localization: 'Localization', security: 'Security',

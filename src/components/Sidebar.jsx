@@ -9,6 +9,7 @@ const navItems = [
   { to: '/payroll/overtime', icon: 'more_time', labelKey: 'overtime', module: 'payroll' },
   { to: '/payroll/liquidation', icon: 'account_balance', labelKey: 'liquidation', module: 'payroll' },
   { to: '/requests', icon: 'pending_actions', labelKey: 'requests', module: 'requests' },
+  { to: '/sanctions', icon: 'gavel', labelKey: 'sanctions', module: 'sanctions' },
   { to: '/schedule', icon: 'calendar_month', labelKey: 'schedule', module: 'schedule' },
   { to: '/reports', icon: 'analytics', labelKey: 'reports', module: 'reports' },
   { to: '/users', icon: 'manage_accounts', labelKey: 'users', module: 'users' },

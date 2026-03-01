@@ -13,6 +13,7 @@ const EmployeeDetailPage = lazy(() => import('../modules/employees/EmployeeDetai
 const OvertimeRulesPage = lazy(() => import('../modules/payroll/OvertimeRulesPage'))
 const PayrollLiquidationPage = lazy(() => import('../modules/payroll-liquidation/PayrollLiquidationPage'))
 const RequestApprovalPage = lazy(() => import('../modules/requests/RequestApprovalPage'))
+const SanctionsPage = lazy(() => import('../modules/sanctions/SanctionsPage'))
 const UserManagementPage = lazy(() => import('../modules/users/UserManagementPage'))
 const SchedulePage = lazy(() => import('../modules/schedule/SchedulePage'))
 const ReportsPage = lazy(() => import('../modules/reports/ReportsPage'))
@@ -54,6 +55,7 @@ export default function AppRouter() {
         <Route path="/payroll/overtime" element={<L><OvertimeRulesPage /></L>} />
         <Route path="/payroll/liquidation" element={<L><PayrollLiquidationPage /></L>} />
         <Route path="/requests" element={<L><RequestApprovalPage /></L>} />
+        <Route path="/sanctions" element={<L><SanctionsPage /></L>} />
         <Route path="/schedule" element={<L><SchedulePage /></L>} />
         <Route path="/reports" element={<L><ReportsPage /></L>} />
         <Route path="/users" element={<L><UserManagementPage /></L>} />

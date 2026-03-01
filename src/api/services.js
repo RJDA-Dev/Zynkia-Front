@@ -131,3 +131,11 @@ export const notifications = {
   markAllRead: () => api.patch('/notifications/read-all'),
   registerToken: (token) => api.post('/notifications/register-token', { token }),
 }
+
+export const sanctions = {
+  list: (params) => api.get('/sanctions', { params }),
+  stats: () => api.get('/sanctions/stats'),
+  create: (data) => api.post('/sanctions', data),
+  confirm: (id) => api.patch(`/sanctions/${id}/confirm`),
+  dismiss: (id) => api.patch(`/sanctions/${id}/dismiss`),
+}
