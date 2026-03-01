@@ -87,8 +87,7 @@ export default function RequestApprovalPage() {
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-black text-gray-900 tracking-tight">{es ? 'Aprobación de Solicitudes' : 'Request Approval'}</h1>
-        <p className="text-gray-500 mt-1">{es ? 'Gestione las solicitudes pendientes de su equipo de manera eficiente.' : "Manage your team's pending requests efficiently."}</p>
+        <p className="text-gray-500">{es ? 'Gestione las solicitudes pendientes de su equipo de manera eficiente.' : "Manage your team's pending requests efficiently."}</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

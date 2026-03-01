@@ -72,8 +72,7 @@ export default function SanctionsPage() {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">{es ? 'Sanciones y Descuentos' : 'Sanctions & Deductions'}</h1>
-          <p className="text-gray-500 mt-1">{es ? 'Gestión de observaciones, sanciones y descuentos por turno.' : 'Manage observations, sanctions and shift deductions.'}</p>
+          <p className="text-gray-500">{es ? 'Gestión de observaciones, sanciones y descuentos por turno.' : 'Manage observations, sanctions and shift deductions.'}</p>
         </div>
         <Button onClick={() => setShowCreate(true)} icon="add">{es ? 'Reportar' : 'Report'}</Button>
       </div>

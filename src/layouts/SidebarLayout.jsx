@@ -11,14 +11,14 @@ const pageTitles = {
   es: {
     '/dashboard': 'Panel Principal', '/employees': 'Empleados', '/attendance': 'Asistencia',
     '/payroll/overtime': 'Horas Extra', '/payroll/liquidation': 'Liquidación',
-    '/requests': 'Solicitudes', '/schedule': 'Calendario', '/reports': 'Reportes',
+    '/requests': 'Solicitudes', '/sanctions': 'Sanciones', '/schedule': 'Calendario', '/reports': 'Reportes',
     '/users': 'Usuarios', '/departments': 'Departamentos',
     '/settings/general': 'General', '/profile': 'Mi Perfil',
   },
   en: {
     '/dashboard': 'Dashboard', '/employees': 'Employees', '/attendance': 'Attendance',
     '/payroll/overtime': 'Overtime Rules', '/payroll/liquidation': 'Settlement',
-    '/requests': 'Requests', '/schedule': 'Schedule', '/reports': 'Reports',
+    '/requests': 'Requests', '/sanctions': 'Sanctions', '/schedule': 'Schedule', '/reports': 'Reports',
     '/users': 'Users', '/departments': 'Departments',
     '/settings/general': 'General', '/profile': 'My Profile',
   },
