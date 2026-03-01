@@ -19,6 +19,8 @@ export default function EmployeeHomePage() {
 
   const nextShift = home.nextShift
   const stats = home.stats || {}
+  const isNight = nextShift?.shiftType === 'night'
+  const shiftGradient = isNight ? 'from-gray-900 to-gray-800' : 'from-primary to-purple-800'
 
   return (
     <>
@@ -26,7 +28,7 @@ export default function EmployeeHomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Next shift */}
         <div className="lg:col-span-2 rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-          <div className="bg-gradient-to-br from-primary to-purple-800 p-5 lg:p-6 text-white relative overflow-hidden">
+          <div className={`bg-gradient-to-br ${shiftGradient} p-5 lg:p-6 text-white relative overflow-hidden`}>
             <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
             <div className="relative z-10">
               <div className="flex justify-between items-start">
@@ -35,8 +37,8 @@ export default function EmployeeHomePage() {
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     {es ? 'Tu proximo turno' : 'Your next shift'}
                   </span>
-                  <h2 className="text-xl lg:text-2xl font-bold mt-3">{nextShift ? `${nextShift.startTime} - ${nextShift.endTime}` : (es ? 'Sin turnos' : 'No shifts')}</h2>
-                  {nextShift && <p className="text-white/70 text-sm mt-0.5">{new Date(nextShift.date).toLocaleDateString(es ? 'es-CO' : 'en-US', { weekday: 'long', day: 'numeric', month: 'short' })}</p>}
+                  <h2 className="text-xl lg:text-2xl font-bold mt-3">{nextShift ? `${nextShift.startTime?.slice(0,5)} - ${nextShift.endTime?.slice(0,5)}` : (es ? 'Sin turnos programados' : 'No shifts scheduled')}</h2>
+                  {nextShift && <p className="text-white/70 text-sm mt-0.5">{nextShift.shiftType} — {new Date(nextShift.date + 'T12:00:00').toLocaleDateString(es ? 'es-CO' : 'en-US', { weekday: 'long', day: 'numeric', month: 'short' })}</p>}
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
                   <span className="material-symbols-outlined text-[26px]">schedule</span>
@@ -45,7 +47,7 @@ export default function EmployeeHomePage() {
             </div>
           </div>
           <div className="bg-white p-4">
-            <button className="w-full h-12 bg-gray-900 hover:bg-gray-800 active:scale-[0.98] transition-all rounded-xl flex items-center justify-center gap-2 text-white font-semibold shadow-lg">
+            <button className={`w-full h-12 ${isNight ? 'bg-gray-900 hover:bg-black' : 'bg-gray-900 hover:bg-gray-800'} active:scale-[0.98] transition-all rounded-xl flex items-center justify-center gap-2 text-white font-semibold shadow-lg`}>
               <span className="material-symbols-outlined">fingerprint</span>
               {es ? 'Marcar Asistencia' : 'Check In'}
             </button>

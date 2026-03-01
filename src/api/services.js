@@ -113,6 +113,11 @@ export const portal = {
   home: () => api.get('/employee/home'),
   schedule: () => api.get('/employee/schedule'),
   vacationBalance: () => api.get('/employee/vacation-balance'),
+  notifications: () => api.get('/employee/notifications'),
+  coworkers: () => api.get('/employee/coworkers'),
+  swaps: () => api.get('/employee/swaps'),
+  createSwap: (data) => api.post('/employee/swaps', data),
+  respondSwap: (id, accept) => api.patch(`/employee/swaps/${id}/respond`, { accept }),
 }
 
 export const notifications = {

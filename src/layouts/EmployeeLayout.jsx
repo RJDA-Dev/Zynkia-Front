@@ -7,6 +7,7 @@ const tabs = (es) => [
   { to: '/employee', icon: 'home', label: es ? 'Inicio' : 'Home', end: true },
   { to: '/employee/schedule', icon: 'calendar_month', label: es ? 'Horario' : 'Schedule' },
   { to: '/employee/requests', icon: 'description', label: es ? 'Solicitudes' : 'Requests' },
+  { to: '/employee/notifications', icon: 'notifications', label: es ? 'Alertas' : 'Alerts' },
   { to: '/employee/profile', icon: 'person', label: es ? 'Perfil' : 'Profile' },
 ]
 
