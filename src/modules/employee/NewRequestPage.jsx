@@ -4,6 +4,9 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Tabs from '../../components/ui/Tabs'
 import Avatar from '../../components/ui/Avatar'
+import DatePicker from '../../components/ui/DatePicker'
+import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 import { useLang } from '../../context/LangContext'
 import { useToast } from '../../context/ToastContext'
 import { requests, portal } from '../../api/services'
@@ -257,33 +260,15 @@ export default function NewRequestPage() {
           <div className="lg:col-span-8">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="p-5 lg:p-6 space-y-5">
-                <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Motivo' : 'Reason'}</label>
-                  <select value={form.reason} onChange={set('reason')} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm focus:ring-2 focus:ring-primary outline-none">
-                    <option value="">{es ? 'Seleccione...' : 'Select...'}</option>
-                    {(reasons[activeTab] || []).map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
+                <Select label={es ? 'Motivo' : 'Reason'} value={form.reason} onChange={v => setForm(f => ({ ...f, reason: v?.target?.value ?? v }))} options={[{ value: '', label: es ? 'Seleccione...' : 'Select...' }, ...(reasons[activeTab] || []).map(r => ({ value: r, label: r }))]} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-gray-700 block mb-1.5">{t('startDate')}</label>
-                    <input type="date" value={form.startDate} onChange={set('startDate')} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Fecha fin' : 'End date'}</label>
-                    <input type="date" value={form.endDate} onChange={set('endDate')} min={form.startDate} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
+                  <DatePicker label={t('startDate')} value={form.startDate} onChange={d => setForm(f => ({ ...f, startDate: d ? d.toISOString().split('T')[0] : '' }))} />
+                  <DatePicker label={es ? 'Fecha fin' : 'End date'} value={form.endDate} onChange={d => setForm(f => ({ ...f, endDate: d ? d.toISOString().split('T')[0] : '' }))} />
                 </div>
                 {activeTab === 'extras' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Hora inicio' : 'Start time'}</label>
-                      <input type="time" value={form.startTime} onChange={set('startTime')} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Hora fin' : 'End time'}</label>
-                      <input type="time" value={form.endTime} onChange={set('endTime')} className="w-full h-11 rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:ring-2 focus:ring-primary" />
-                    </div>
+                    <Input label={es ? 'Hora inicio' : 'Start time'} type="time" icon="schedule" value={form.startTime} onChange={set('startTime')} />
+                    <Input label={es ? 'Hora fin' : 'End time'} type="time" icon="schedule" value={form.endTime} onChange={set('endTime')} />
                   </div>
                 )}
                 {activeTab === 'extras' && form.startTime && form.endTime && form.startDate && (() => {
