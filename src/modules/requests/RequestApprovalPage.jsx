@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { requests as reqService } from '../../api/services'
 import useFetch from '../../hooks/useFetch'
 import useCurrency from '../../hooks/useCurrency'
 import StatCard from '../../components/ui/StatCard'
 import Badge from '../../components/ui/Badge'
 import Avatar from '../../components/ui/Avatar'
+import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
 import { useLang } from '../../context/LangContext'
-import { useMutation } from '../../hooks/useFetch'
 import { useToast } from '../../context/ToastContext'
+import Spinner from '../../components/ui/Spinner'
 
-const typeIcons = { overtime: 'more_time', leave: 'assignment_turned_in', medical: 'medical_services', vacation: 'beach_access' }
 const typeColors = { overtime: 'warning', leave: 'info', medical: 'danger', vacation: 'purple' }
 const typeLabels = { overtime: { es: 'Horas Extra', en: 'Overtime' }, leave: { es: 'Personal', en: 'Leave' }, medical: { es: 'Médica', en: 'Medical' }, vacation: { es: 'Vacaciones', en: 'Vacation' } }
 const surchargeLabels = { diurna: 'Diurna', nocturna: 'Nocturna', dominical_diurna: 'Dom. Diurna', dominical_nocturna: 'Dom. Nocturna', festivo: 'Festivo' }
@@ -29,7 +29,7 @@ const fmtDate = (d, es) => {
 }
 
 export default function RequestApprovalPage() {
-  const { t, lang } = useLang()
+  const { lang } = useLang()
   const es = lang === 'es'
   const toast = useToast()
   const { formatCurrency: fc } = useCurrency()
@@ -37,34 +37,48 @@ export default function RequestApprovalPage() {
   const [filter, setFilter] = useState('pending')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const { data, loading, refetch } = useFetch(() => reqService.list(filter === 'all' ? {} : { status: filter }), { key: `requests-${filter}`, deps: [filter] })
-  const { data: allData, refetch: refetchAll } = useFetch(() => reqService.list({}), { key: 'requests-all-stats' })
-  const { mutate: approve } = useMutation((id) => reqService.approve(id))
-  const { mutate: reject } = useMutation((id) => reqService.reject(id))
+  const [requestsState, setRequestsState] = useState([])
+  const [actioningId, setActioningId] = useState(null)
+  const { data, loading } = useFetch(() => reqService.list({}), { key: 'requests-all' })
 
-  const raw = data?.data || data || []
-  const allRaw = allData?.data || allData || []
-  const list = raw.filter(r => {
+  useEffect(() => {
+    const nextRequests = data?.data || data || []
+    setRequestsState(Array.isArray(nextRequests) ? nextRequests : [])
+  }, [data])
+
+  const list = requestsState.filter(r => {
+    if (filter !== 'all' && r.status !== filter) return false
     if (search && !r.employee?.name?.toLowerCase().includes(search.toLowerCase())) return false
     if (typeFilter && r.type !== typeFilter) return false
     return true
   })
 
   const today = new Date().toISOString().slice(0, 10)
-  const pendingCount = allRaw.filter(r => r.status === 'pending').length
-  const approvedToday = allRaw.filter(r => r.status === 'approved' && r.reviewedAt?.startsWith(today)).length
-  const rejectedToday = allRaw.filter(r => r.status === 'rejected' && r.reviewedAt?.startsWith(today)).length
-  const teamSize = new Set(allRaw.map(r => r.employeeId)).size
+  const pendingCount = requestsState.filter(r => r.status === 'pending').length
+  const approvedToday = requestsState.filter(r => r.status === 'approved' && r.reviewedAt?.startsWith(today)).length
+  const rejectedToday = requestsState.filter(r => r.status === 'rejected' && r.reviewedAt?.startsWith(today)).length
+  const teamSize = new Set(requestsState.map(r => r.employeeId)).size
 
   const handleAction = async (action, id) => {
+    const nextStatus = action === 'approve' ? 'approved' : 'rejected'
+    const reviewedAt = new Date().toISOString()
+    setActioningId(id)
     try {
-      if (action === 'approve') await approve(id)
-      else await reject(id)
+      if (action === 'approve') await reqService.approve(id)
+      else await reqService.reject(id)
+      setRequestsState(prev => prev.map(request => (
+        String(request.id) === String(id)
+          ? { ...request, status: nextStatus, reviewedAt }
+          : request
+      )))
+      setDetail(prev => (
+        String(prev?.id) === String(id)
+          ? { ...prev, status: nextStatus, reviewedAt }
+          : prev
+      ))
       toast.success(action === 'approve' ? (es ? 'Aprobada' : 'Approved') : (es ? 'Rechazada' : 'Rejected'))
-      setDetail(null)
-      refetch()
-      refetchAll()
     } catch { toast.error('Error') }
+    finally { setActioningId(null) }
   }
 
   const viewAttachment = async (id) => {
@@ -92,23 +106,22 @@ export default function RequestApprovalPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(pendingCount)} icon="pending_actions" />
-        <StatCard label={es ? 'Aprobadas Hoy' : 'Approved Today'} value={String(approvedToday)} icon="check_circle" iconColor="text-emerald-600 bg-emerald-50" />
+        <StatCard label={es ? 'Aprobadas Hoy' : 'Approved Today'} value={String(approvedToday)} icon="check_circle" iconColor="text-success bg-success/10" />
         <StatCard label={es ? 'Rechazadas Hoy' : 'Rejected Today'} value={String(rejectedToday)} icon="cancel" iconColor="text-red-600 bg-red-50" />
         <StatCard label={es ? 'Total Equipo' : 'Team Total'} value={String(teamSize)} icon="group" iconColor="text-blue-600 bg-blue-50" />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-3 items-end">
-        <div className="flex-1 min-w-0">
-          <label className="text-xs font-medium text-gray-500 mb-1 block">{es ? 'Buscar por empleado' : 'Search by employee'}</label>
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">person_search</span>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={es ? 'Nombre...' : 'Name...'}
-              className="w-full pl-10 pr-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
-          </div>
-        </div>
+      <div className="rounded-[--radius-xl] border border-slate-200 bg-white/88 p-4 shadow-[--shadow-md] flex flex-col sm:flex-row gap-3 items-end">
+        <Input
+          label={es ? 'Buscar por empleado' : 'Search by employee'}
+          icon="person_search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={es ? 'Nombre...' : 'Name...'}
+          className="flex-1 min-w-0"
+        />
         <div className="w-full sm:w-48">
-          <label className="text-xs font-medium text-gray-500 mb-1 block">{es ? 'Filtrar por tipo' : 'Filter by type'}</label>
-          <Select value={typeFilter} onChange={setTypeFilter} options={typeOpts} />
+          <Select label={es ? 'Filtrar por tipo' : 'Filter by type'} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} options={typeOpts} />
         </div>
         <div className="flex gap-2">
           {[
@@ -117,16 +130,16 @@ export default function RequestApprovalPage() {
             { key: 'rejected', label: es ? 'Rechazadas' : 'Rejected' },
             { key: 'all', label: es ? 'Todas' : 'All' },
           ].map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${filter === f.key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              <button key={f.key} onClick={() => setFilter(f.key)}
+              className={`px-3 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${filter === f.key ? 'bg-slate-900 text-white shadow-[0_14px_28px_rgba(15,23,42,0.14)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>
+      {loading && requestsState.length === 0 ? (
+        <Spinner />
       ) : list.length === 0 ? (
         <div className="text-center py-16">
           <span className="material-symbols-outlined text-5xl text-gray-300 block mb-2">inbox</span>
@@ -138,7 +151,7 @@ export default function RequestApprovalPage() {
             const isOT = r.type === 'overtime'
             const days = r.days || (r.startDate && r.endDate ? Math.max(1, Math.round((new Date(r.endDate) - new Date(r.startDate)) / 86400000) + 1) : 1)
             return (
-              <div key={r.id} className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all flex flex-col ${detail?.id === r.id ? 'border-primary ring-2 ring-primary/20' : 'border-gray-200'}`}>
+              <div key={r.id} className={`overflow-hidden rounded-[--radius-xl] border bg-white shadow-[--shadow-md] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_55px_rgba(15,23,42,0.10)] flex flex-col ${detail?.id === r.id ? 'border-primary ring-2 ring-primary/20' : 'border-gray-200'}`}>
                 <div className="p-5 pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -154,7 +167,7 @@ export default function RequestApprovalPage() {
                   </div>
                 </div>
 
-                <div className="px-5 pb-2">
+                <div className="border-t border-slate-100 px-5 pb-2 pt-4">
                   <div className="flex items-center gap-2 text-sm text-gray-700">
                     <span className="material-symbols-outlined text-gray-400 text-lg">event</span>
                     <span className="font-medium">
@@ -186,7 +199,7 @@ export default function RequestApprovalPage() {
                 <div className="px-5 pb-3">
                   {r.attachmentKey ? (
                     <button onClick={() => viewAttachment(r.id)}
-                      className="w-full flex items-center gap-2 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 text-sm transition-colors text-left">
+                      className="w-full flex items-center gap-2 bg-gray-50 hover:bg-gray-100 rounded-[--radius-md] px-3 py-2 text-sm transition-colors text-left">
                       <span className="material-symbols-outlined text-primary text-lg">attach_file</span>
                       <span className="text-primary font-medium truncate flex-1">{r.attachmentKey.split('/').pop()}</span>
                       <span className="material-symbols-outlined text-gray-400 text-lg">visibility</span>
@@ -210,14 +223,16 @@ export default function RequestApprovalPage() {
                 {r.status === 'pending' && (
                   <div className="px-5 pb-5 pt-1 flex gap-3">
                     <button onClick={() => handleAction('reject', r.id)}
-                      className="flex-1 h-10 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors">
+                      disabled={actioningId === r.id}
+                      className="flex-1 h-10 rounded-[--radius-md] border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors">
                       <span className="material-symbols-outlined text-lg">close</span>
-                      {es ? 'Rechazar' : 'Reject'}
+                      {actioningId === r.id ? '...' : es ? 'Rechazar' : 'Reject'}
                     </button>
                     <button onClick={() => handleAction('approve', r.id)}
-                      className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+                      disabled={actioningId === r.id}
+                      className="flex-1 h-10 rounded-[--radius-md] bg-success text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition-[filter,transform] shadow-sm hover:brightness-[0.96] disabled:cursor-not-allowed disabled:opacity-60">
                       <span className="material-symbols-outlined text-lg">check</span>
-                      {es ? 'Aprobar' : 'Approve'}
+                      {actioningId === r.id ? '...' : es ? 'Aprobar' : 'Approve'}
                     </button>
                   </div>
                 )}
@@ -228,7 +243,8 @@ export default function RequestApprovalPage() {
       )}
 
       {/* OT Cost Side Panel */}
-      <div className={`fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${detail ? 'translate-x-0' : 'translate-x-full'}`}>
+      {detail && <div className="fixed inset-0 z-[99] bg-black/30" onClick={() => setDetail(null)} />}
+      <div className={`fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-[--shadow-xl] border-l border-slate-200 z-[100] transform transition-transform duration-300 ease-in-out ${detail ? 'translate-x-0' : 'translate-x-full'}`}>
         {detail && (() => {
           const r = detail
           return (
@@ -244,7 +260,7 @@ export default function RequestApprovalPage() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div className="app-scrollbar flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Employee */}
                 <div className="flex items-center gap-4">
                   <Avatar name={r.employee?.name} size="lg" />
@@ -337,14 +353,16 @@ export default function RequestApprovalPage() {
               {r.status === 'pending' && (
                 <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
                   <button onClick={() => handleAction('reject', r.id)}
+                    disabled={actioningId === r.id}
                     className="flex-1 h-11 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
                     <span className="material-symbols-outlined text-lg">close</span>
-                    {es ? 'Rechazar' : 'Reject'}
+                    {actioningId === r.id ? '...' : es ? 'Rechazar' : 'Reject'}
                   </button>
                   <button onClick={() => handleAction('approve', r.id)}
-                    className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm">
+                    disabled={actioningId === r.id}
+                    className="flex-1 h-11 rounded-xl bg-success text-white font-semibold text-sm flex items-center justify-center gap-2 transition-[filter,transform] shadow-sm hover:brightness-[0.96] disabled:cursor-not-allowed disabled:opacity-60">
                     <span className="material-symbols-outlined text-lg">check</span>
-                    {es ? 'Aprobar Extras' : 'Approve OT'}
+                    {actioningId === r.id ? '...' : es ? 'Aprobar Extras' : 'Approve OT'}
                   </button>
                 </div>
               )}

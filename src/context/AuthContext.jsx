@@ -1,6 +1,9 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { auth as authService, settings as settingsService } from '../api/services'
+import { getMockSessionUser, isMockApiEnabled } from '../services/mockApi'
 
-const API = 'http://localhost:3000/api'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 const AuthContext = createContext(null)
 
@@ -33,6 +36,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const unwrapData = useCallback((payload) => payload?.data?.data || payload?.data || payload || null, [])
+
   const extractUser = useCallback((token) => {
     const p = decodeJwt(token)
     if (!p) return null
@@ -41,30 +46,22 @@ export function AuthProvider({ children }) {
     return { sub: p.sub, email: p.email, tenantId: p.tenant_id, role, name: p.name || p.preferred_username || p.email }
   }, [])
 
-  const login = useCallback(async (username, password) => {
-    const res = await fetch(`${API}/auth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      if (err.message?.includes('action') || err.statusCode === 401) {
-        await loginWithMFA()
-        return null
-      }
-      throw new Error(err.message || 'Invalid credentials')
-    }
-    const data = await res.json()
-    const tokens = data.data || data
-    localStorage.setItem('token', tokens.access_token)
-    localStorage.setItem('refresh_token', tokens.refresh_token)
-    const u = extractUser(tokens.access_token)
-    setUser(u)
-    return u
-  }, [extractUser])
+  const setSessionTokens = useCallback((tokens) => {
+    if (tokens?.access_token) localStorage.setItem('token', tokens.access_token)
+    if (tokens?.refresh_token) localStorage.setItem('refresh_token', tokens.refresh_token)
+  }, [])
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('currency')
+    localStorage.removeItem('timeFormat')
+    if (isMockApiEnabled) authService.logout().catch(() => null)
+    setUser(null)
+  }, [])
 
   const loginWithMFA = useCallback(async () => {
+    if (isMockApiEnabled) return null
     const verifier = generateCodeVerifier()
     const challenge = await generateCodeChallenge(verifier)
     sessionStorage.setItem('pkce_verifier', verifier)
@@ -84,7 +81,39 @@ export function AuthProvider({ children }) {
     window.location.href = `${authUrl}?${params}`
   }, [])
 
+  const login = useCallback(async (username, password) => {
+    if (isMockApiEnabled) {
+      const data = await authService.login(username, password)
+      const tokens = unwrapData(data)
+      const nextUser = tokens?.user || getMockSessionUser()
+      setSessionTokens(tokens)
+      setUser(nextUser)
+      return nextUser
+    }
+
+    const res = await fetch(`${API}/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      if (err.message?.includes('action') || err.statusCode === 401) {
+        await loginWithMFA()
+        return null
+      }
+      throw new Error(err.message || 'Invalid credentials')
+    }
+    const data = await res.json()
+    const tokens = data.data || data
+    setSessionTokens(tokens)
+    const u = extractUser(tokens.access_token)
+    setUser(u)
+    return u
+  }, [extractUser, loginWithMFA, setSessionTokens, unwrapData])
+
   const handleCallback = useCallback(async (code) => {
+    if (isMockApiEnabled) return null
     const verifier = sessionStorage.getItem('pkce_verifier')
     sessionStorage.removeItem('pkce_verifier')
     const res = await fetch(`${API}/auth/exchange`, {
@@ -95,14 +124,30 @@ export function AuthProvider({ children }) {
     if (!res.ok) throw new Error('Token exchange failed')
     const data = await res.json()
     const tokens = data.data || data
-    localStorage.setItem('token', tokens.access_token)
-    localStorage.setItem('refresh_token', tokens.refresh_token)
+    setSessionTokens(tokens)
     const u = extractUser(tokens.access_token)
     setUser(u)
     return u
-  }, [extractUser])
+  }, [extractUser, setSessionTokens])
 
   const refresh = useCallback(async () => {
+    if (isMockApiEnabled) {
+      const token = localStorage.getItem('token')
+      if (!token) return false
+
+      try {
+        const data = await authService.refresh()
+        const tokens = unwrapData(data)
+        const nextUser = tokens?.user || getMockSessionUser()
+        setSessionTokens(tokens)
+        setUser(nextUser)
+        return true
+      } catch {
+        logout()
+        return false
+      }
+    }
+
     const rt = localStorage.getItem('refresh_token')
     if (!rt) return false
     try {
@@ -114,38 +159,41 @@ export function AuthProvider({ children }) {
       if (!res.ok) throw new Error()
       const data = await res.json()
       const tokens = data.data || data
-      localStorage.setItem('token', tokens.access_token)
-      localStorage.setItem('refresh_token', tokens.refresh_token)
+      setSessionTokens(tokens)
       setUser(extractUser(tokens.access_token))
       return true
     } catch {
       logout()
       return false
     }
-  }, [extractUser])
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refresh_token')
-    setUser(null)
-  }, [])
+  }, [extractUser, logout, setSessionTokens, unwrapData])
 
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) { setLoading(false); return }
+
+    if (isMockApiEnabled) {
+      authService.me()
+        .then((payload) => setUser(unwrapData(payload)))
+        .catch(() => logout())
+        .finally(() => setLoading(false))
+      return
+    }
+
     if (isTokenExpired(token)) {
       refresh().finally(() => setLoading(false))
     } else {
       setUser(extractUser(token))
       setLoading(false)
     }
-  }, [extractUser, refresh])
+  }, [extractUser, logout, refresh, unwrapData])
 
   useEffect(() => {
     if (!user) return
     const interval = setInterval(() => {
       const token = localStorage.getItem('token')
-      if (token && isTokenExpired(token)) refresh()
+      if (!token) return
+      if (isMockApiEnabled || isTokenExpired(token)) refresh()
     }, 60_000)
     return () => clearInterval(interval)
   }, [user, refresh])
@@ -154,6 +202,20 @@ export function AuthProvider({ children }) {
   const syncCurrency = useCallback(async () => {
     const token = localStorage.getItem('token')
     if (!token) return
+
+    if (isMockApiEnabled) {
+      try {
+        const me = unwrapData(await authService.me())
+        const localization = await settingsService.getLocalization()
+        if (me?.currency) localStorage.setItem('currency', me.currency)
+        if (localization?.currency) localStorage.setItem('currency', localization.currency)
+        if (localization?.timeFormat) localStorage.setItem('timeFormat', localization.timeFormat)
+      } catch {
+        return
+      }
+      return
+    }
+
     try {
       const res = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 403) { logout(); return }
@@ -168,8 +230,10 @@ export function AuthProvider({ children }) {
         const d = lj?.data || lj
         if (d?.timeFormat) localStorage.setItem('timeFormat', d.timeFormat)
       }
-    } catch {}
-  }, [])
+    } catch {
+      return
+    }
+  }, [logout, unwrapData])
 
   useEffect(() => { if (user) syncCurrency() }, [user, syncCurrency])
 

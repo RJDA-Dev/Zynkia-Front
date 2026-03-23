@@ -10,6 +10,8 @@ import { useToast } from '../../context/ToastContext'
 import Table from '../../components/ui/Table'
 import Tabs from '../../components/ui/Tabs'
 import Avatar from '../../components/ui/Avatar'
+import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 import useCurrency from '../../hooks/useCurrency'
 
 export default function PayrollLiquidationPage() {
@@ -159,18 +161,18 @@ export default function PayrollLiquidationPage() {
       {/* OT: Approval tab */}
       {subTab === 'pendientes' && isOT && (
         <Card>
-          <div className="p-4 border-b border-gray-100 flex items-center gap-3 flex-wrap">
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">{es ? 'Mes' : 'Month'}</label>
-              <input type="month" value={otPeriod} onChange={e => setOtPeriod(e.target.value)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-300" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">{es ? 'Semana' : 'Week'}</label>
-              <select value={otWeek} onChange={e => setOtWeek(e.target.value)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-300">
-                <option value="">{es ? 'Todas' : 'All'}</option>
-                {[1,2,3,4,5].map(w => <option key={w} value={w}>{es ? `Semana ${w}` : `Week ${w}`}</option>)}
-              </select>
-            </div>
+            <div className="p-4 border-b border-gray-100 flex items-center gap-3 flex-wrap">
+            <Input label={es ? 'Mes' : 'Month'} type="month" value={otPeriod} onChange={e => setOtPeriod(e.target.value)} className="min-w-[180px]" />
+            <Select
+              label={es ? 'Semana' : 'Week'}
+              value={otWeek}
+              onChange={e => setOtWeek(e.target.value)}
+              className="min-w-[180px]"
+              options={[
+                { value: '', label: es ? 'Todas' : 'All' },
+                ...[1, 2, 3, 4, 5].map(w => ({ value: w, label: es ? `Semana ${w}` : `Week ${w}` })),
+              ]}
+            />
           </div>
           {otPending.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
@@ -300,7 +302,7 @@ export default function PayrollLiquidationPage() {
 
       {/* PDF Preview Modal */}
       {previewUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewUrl(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewUrl(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] mx-4 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">

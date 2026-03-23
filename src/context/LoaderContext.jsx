@@ -1,27 +1,33 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback } from 'react'
+import AppLoader from '../components/ui/AppLoader'
 
 const LoaderContext = createContext(null)
+const emptyMessage = { label: '', detail: '', icon: 'downloading' }
 
 export function LoaderProvider({ children }) {
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(emptyMessage)
 
-  const show = useCallback((msg = '') => { setMessage(msg); setLoading(true) }, [])
-  const hide = useCallback(() => { setLoading(false); setMessage('') }, [])
+  const show = useCallback((payload = '') => {
+    if (typeof payload === 'string') {
+      setMessage({ ...emptyMessage, label: payload })
+    } else {
+      setMessage({ ...emptyMessage, ...payload })
+    }
+    setLoading(true)
+  }, [])
+  const hide = useCallback(() => { setLoading(false); setMessage(emptyMessage) }, [])
 
   return (
     <LoaderContext.Provider value={{ show, hide, loading }}>
       {children}
       {loading && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl px-8 py-6 flex flex-col items-center gap-4 animate-fade-in">
-            <div className="relative h-12 w-12">
-              <div className="absolute inset-0 rounded-full border-4 border-purple-100" />
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-purple-600 animate-spin" />
-            </div>
-            {message && <p className="text-sm text-gray-600 font-medium">{message}</p>}
-          </div>
-        </div>
+        <AppLoader
+          label={message.label || 'Procesando'}
+          detail={message.detail}
+          icon={message.icon}
+        />
       )}
     </LoaderContext.Provider>
   )

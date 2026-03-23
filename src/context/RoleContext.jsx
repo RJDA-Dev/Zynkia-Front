@@ -1,15 +1,12 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useCallback, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
 import { users as usersService } from '../api/services'
+import { mockRoleModules } from '../data/mock'
 
 const RoleContext = createContext(null)
 
-// Fallback while API loads
-const defaultModules = {
-  admin: ['dashboard','employees','attendance','payroll','requests','schedule','reports','users','departments','onboarding','settings'],
-  coordinator: ['dashboard','employees','attendance','requests','schedule','reports'],
-  employee: ['portal-inicio','portal-solicitudes','portal-turnos','portal-perfil'],
-}
+const defaultModules = mockRoleModules
 
 export function RoleProvider({ children }) {
   const { user } = useAuth()
@@ -19,14 +16,17 @@ export function RoleProvider({ children }) {
   useEffect(() => {
     if (!user) return
     usersService.roles().then(r => {
-      const roles = r?.data?.data || r?.data || []
+      const roles = r?.data?.data || r?.data || r || []
       const map = {}
       roles.forEach(r2 => { map[r2.name] = r2.modules || [] })
       setRoleModules(map)
     }).catch(() => {})
   }, [user])
 
-  const modules = roleModules?.[role] || defaultModules[role] || []
+  const modules = Array.from(new Set([
+    ...(defaultModules[role] || []),
+    ...((roleModules?.[role]) || []),
+  ]))
   const hasAccess = useCallback((mod) => modules.includes(mod), [modules])
 
   return (

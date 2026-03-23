@@ -1,42 +1,53 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { users as usersService } from '../../api/services'
 import useFetch from '../../hooks/useFetch'
 import usePresence from '../../hooks/usePresence'
 import Table from '../../components/ui/Table'
-import Badge from '../../components/ui/Badge'
 import Avatar from '../../components/ui/Avatar'
 import { useLang } from '../../context/LangContext'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 import Tabs from '../../components/ui/Tabs'
 import Pagination from '../../components/ui/Pagination'
+import Toggle from '../../components/ui/Toggle'
 import { useToast } from '../../context/ToastContext'
 
 const ALL_MODULES = [
   'dashboard','employees','attendance','payroll','requests','schedule',
-  'reports','users','departments','onboarding','settings',
-  'portal-inicio','portal-solicitudes','portal-turnos','portal-perfil',
+  'reports','users','departments','onboarding','settings','sanctions',
+  'administration','offboarding','inventory','vacancies','contracts','calculator','profile',
+  'employee-files','workflow-automation','onboarding-ops','benefits','compliance',
+  'performance','access','helpdesk','org-planning','integrations',
+  'portal-inicio','portal-solicitudes','portal-turnos','portal-inventory','portal-perfil',
 ]
 
 const moduleLabels = {
-  es: { dashboard:'Panel','employees':'Empleados','attendance':'Asistencia','payroll':'Nómina','requests':'Solicitudes','schedule':'Turnos','reports':'Reportes','users':'Usuarios','departments':'Departamentos','onboarding':'Onboarding','settings':'Ajustes','portal-inicio':'Portal Inicio','portal-solicitudes':'Portal Solicitudes','portal-turnos':'Portal Turnos','portal-perfil':'Portal Perfil' },
-  en: { dashboard:'Dashboard','employees':'Employees','attendance':'Attendance','payroll':'Payroll','requests':'Requests','schedule':'Schedule','reports':'Reports','users':'Users','departments':'Departments','onboarding':'Onboarding','settings':'Settings','portal-inicio':'Portal Home','portal-solicitudes':'Portal Requests','portal-turnos':'Portal Schedule','portal-perfil':'Portal Profile' },
+  es: { dashboard:'Panel','employees':'Empleados','attendance':'Asistencia','payroll':'Nómina','requests':'Solicitudes','schedule':'Turnos','reports':'Reportes','users':'Usuarios','departments':'Departamentos','onboarding':'Onboarding','settings':'Ajustes','sanctions':'Sanciones','administration':'Administración','offboarding':'Retiro','inventory':'Inventario','vacancies':'Vacantes','contracts':'Contratos','calculator':'Calculadora','profile':'Perfil','employee-files':'Expediente digital','workflow-automation':'Flujos y aprobaciones','onboarding-ops':'Preboarding y onboarding','benefits':'Beneficios y gastos','compliance':'SST y cumplimiento','performance':'Periodo y desempeño','access':'Accesos y provisionamiento','helpdesk':'Mesa RH','org-planning':'Planeación organizacional','integrations':'Integraciones','portal-inicio':'Portal Inicio','portal-solicitudes':'Portal Solicitudes','portal-turnos':'Portal Turnos','portal-inventory':'Portal Inventario','portal-perfil':'Portal Perfil' },
+  en: { dashboard:'Dashboard','employees':'Employees','attendance':'Attendance','payroll':'Payroll','requests':'Requests','schedule':'Schedule','reports':'Reports','users':'Users','departments':'Departments','onboarding':'Onboarding','settings':'Settings','sanctions':'Sanctions','administration':'Administration','offboarding':'Offboarding','inventory':'Inventory','vacancies':'Vacancies','contracts':'Contracts','calculator':'Calculator','profile':'Profile','employee-files':'Digital files','workflow-automation':'Workflows and approvals','onboarding-ops':'Preboarding and onboarding','benefits':'Benefits and expenses','compliance':'HSE and compliance','performance':'Probation and performance','access':'Access and provisioning','helpdesk':'HR helpdesk','org-planning':'Org planning','integrations':'Integrations','portal-inicio':'Portal Home','portal-solicitudes':'Portal Requests','portal-turnos':'Portal Schedule','portal-inventory':'Portal Inventory','portal-perfil':'Portal Profile' },
 }
 
 const roleBadgeColor = { admin: 'purple', coordinator: 'info', employee: 'neutral' }
 
 export default function UserManagementPage() {
-  const { t, lang } = useLang()
+  const { lang } = useLang()
   const es = lang === 'es'
   const toast = useToast()
-  const [activeTab, setActiveTab] = useState('users')
+  const [activeTab, setActiveTab] = useState('roles')
   const [search, setSearch] = useState('')
   const { isOnline } = usePresence()
-  const { data, loading, invalidate: refetchUsers } = useFetch(() => usersService.list({ search }), { deps: [search], key: `users-${search}` })
+  const { data, loading } = useFetch(() => usersService.list({ search }), { deps: [search], key: `users-${search}` })
   const { data: rolesData, refetch: refetchRoles } = useFetch(() => usersService.roles(), { key: 'roles' })
+  const [usersList, setUsersList] = useState([])
+  const [roleLoadingId, setRoleLoadingId] = useState(null)
+  const [statusLoadingId, setStatusLoadingId] = useState(null)
 
-  const list = data?.data || data || []
   const roles = rolesData?.data || rolesData || []
+
+  useEffect(() => {
+    const nextUsers = data?.data || data || []
+    setUsersList(Array.isArray(nextUsers) ? nextUsers : [])
+  }, [data])
 
   // ── Edit role state ──
   const [editing, setEditing] = useState(null) // role object being edited
@@ -89,19 +100,31 @@ export default function UserManagementPage() {
 
   // ── Assign role to user ──
   const assignRole = async (userId, role) => {
+    setRoleLoadingId(userId)
     try {
       await usersService.assignRole(userId, role)
+      setUsersList(prev => prev.map(user => (
+        String(user.id) === String(userId)
+          ? { ...user, role }
+          : user
+      )))
       toast.success(es ? 'Rol asignado' : 'Role assigned')
-      refetchUsers()
     } catch { toast.error(es ? 'Error' : 'Error') }
+    finally { setRoleLoadingId(null) }
   }
 
   const toggleStatus = async (userId) => {
+    setStatusLoadingId(userId)
     try {
       await usersService.toggleStatus(userId)
+      setUsersList(prev => prev.map(user => (
+        String(user.id) === String(userId)
+          ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
+          : user
+      )))
       toast.success(es ? 'Estado actualizado' : 'Status updated')
-      refetchUsers()
     } catch { toast.error(es ? 'Error' : 'Error') }
+    finally { setStatusLoadingId(null) }
   }
 
   const columns = [
@@ -115,28 +138,38 @@ export default function UserManagementPage() {
       </div>
     )},
     { key: 'role', label: es ? 'Rol' : 'Role', render: (val, row) => (
-      <select value={val} onChange={e => assignRole(row.id, e.target.value)}
-        className="text-xs px-2 py-1 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-primary/30 outline-none">
-        {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-        {!roles.find(r2 => r2.name === val) && <option value={val}>{val}</option>}
-      </select>
+      <Select
+        className="min-w-[150px]"
+        value={val}
+        disabled={roleLoadingId === row.id}
+        onChange={e => assignRole(row.id, e.target.value)}
+        options={[
+          ...roles.map(r => ({ value: r.name, label: r.name })),
+          ...(!roles.find(r2 => r2.name === val) ? [{ value: val, label: val }] : []),
+        ]}
+      />
     )},
     { key: 'status', label: es ? 'Estado' : 'Status', render: (val, row) => {
       const online = isOnline(row.id)
       return (
         <div className="flex items-center gap-2">
-          <button onClick={() => toggleStatus(row.id)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${val === 'active' ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${val === 'active' ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
-          </button>
-          <span className="text-xs text-gray-600">{online ? 'Online' : val === 'active' ? (es ? 'Activo' : 'Active') : (es ? 'Inactivo' : 'Inactive')}</span>
+          <Toggle checked={val === 'active'} disabled={statusLoadingId === row.id} onChange={() => toggleStatus(row.id)} />
+          <span className="text-xs text-gray-600">
+            {statusLoadingId === row.id
+              ? (es ? 'Actualizando...' : 'Updating...')
+              : online
+                ? 'Online'
+                : val === 'active'
+                  ? (es ? 'Activo' : 'Active')
+                  : (es ? 'Inactivo' : 'Inactive')}
+          </span>
         </div>
       )
     }},
   ]
 
   const tabItems = [
-    { key: 'users', label: es ? 'Usuarios' : 'Users', icon: 'group' },
+    { key: 'users', label: es ? 'Accesos' : 'Access', icon: 'group' },
     { key: 'roles', label: 'Roles', icon: 'verified_user' },
   ]
 
@@ -146,7 +179,7 @@ export default function UserManagementPage() {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-500 text-sm">{es ? 'Administra los miembros y roles del equipo.' : 'Manage team members and roles.'}</p>
+          <p className="text-gray-500 text-sm">{es ? 'Esta vista administra accesos, estados y roles del sistema. La ficha laboral vive en Empleados.' : 'This view manages system access, status and roles. The employment record lives in Employees.'}</p>
         </div>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -157,7 +190,7 @@ export default function UserManagementPage() {
             <div className="p-5 border-b border-gray-100 bg-gray-50/50">
               <Input icon="search" placeholder={es ? 'Buscar usuarios...' : 'Search users...'} className="w-full md:w-96" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            {loading ? <div className="p-8 text-center text-gray-400">{es ? 'Cargando...' : 'Loading...'}</div> : <Table columns={columns} data={list} />}
+            {loading ? <div className="p-8 text-center text-gray-400">{es ? 'Cargando...' : 'Loading...'}</div> : <Table columns={columns} data={usersList} />}
             <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-3">
               <p className="text-sm text-gray-700">{data?.total || 0} {es ? 'usuarios' : 'users'}</p>
               <Pagination current={1} total={Math.ceil((data?.total || 0) / 20) || 1} />
@@ -175,12 +208,9 @@ export default function UserManagementPage() {
             {showNew && (
               <div className="border-2 border-dashed border-primary/30 rounded-xl p-5 bg-purple-50/30 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} placeholder={es ? 'Nombre del rol' : 'Role name'}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/30 outline-none" />
-                  <input value={newForm.icon} onChange={e => setNewForm(f => ({ ...f, icon: e.target.value }))} placeholder="Icon (Material)"
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/30 outline-none" />
-                  <input value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} placeholder={es ? 'Descripción' : 'Description'}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/30 outline-none" />
+                  <Input value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} placeholder={es ? 'Nombre del rol' : 'Role name'} />
+                  <Input value={newForm.icon} onChange={e => setNewForm(f => ({ ...f, icon: e.target.value }))} placeholder="Icon (Material)" />
+                  <Input value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} placeholder={es ? 'Descripción' : 'Description'} />
                 </div>
                 <p className="text-[11px] font-semibold text-gray-500 uppercase">{es ? 'Módulos' : 'Modules'}</p>
                 <div className="flex flex-wrap gap-2">
@@ -231,7 +261,7 @@ export default function UserManagementPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {(r.perms?.[lang] || r.perms?.es || []).map((p, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span>
+                      <span className="material-symbols-outlined text-[16px] text-success">check_circle</span>
                       {p}
                     </div>
                   ))}

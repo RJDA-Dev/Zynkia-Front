@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { sanctions, employees } from '../../api/services'
-import useFetch from '../../hooks/useFetch'
-import useCurrency from '../../hooks/useCurrency'
-import StatCard from '../../components/ui/StatCard'
+import { employees, sanctions } from '../../api/services'
 import Badge from '../../components/ui/Badge'
-import Avatar from '../../components/ui/Avatar'
-import Select from '../../components/ui/Select'
-import Modal from '../../components/ui/Modal'
-import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
+import DatePicker from '../../components/ui/DatePicker'
+import Input from '../../components/ui/Input'
+import Modal from '../../components/ui/Modal'
+import Select from '../../components/ui/Select'
+import StatCard from '../../components/ui/StatCard'
+import Textarea from '../../components/ui/Textarea'
+import AppLoader from '../../components/ui/AppLoader'
+import Avatar from '../../components/ui/Avatar'
 import { useLang } from '../../context/LangContext'
 import { useToast } from '../../context/ToastContext'
-import DatePicker from '../../components/ui/DatePicker'
+import useCurrency from '../../hooks/useCurrency'
+import useFetch from '../../hooks/useFetch'
 
 const typeOpts = [
   { value: 'tardanza', label: 'Tardanza' },
@@ -20,11 +22,13 @@ const typeOpts = [
   { value: 'conducta', label: 'Conducta inapropiada' },
   { value: 'otro', label: 'Otro' },
 ]
+
 const sevOpts = [
   { value: 'leve', label: 'Leve' },
   { value: 'moderada', label: 'Moderada' },
   { value: 'grave', label: 'Grave' },
 ]
+
 const sevColors = { leve: 'warning', moderada: 'info', grave: 'danger' }
 const statusColors = { pending: 'warning', confirmed: 'danger', appealed: 'info', dismissed: 'neutral' }
 const typeIcons = { tardanza: 'schedule', ausencia: 'person_off', abandono: 'exit_to_app', conducta: 'warning', otro: 'info' }
@@ -33,10 +37,19 @@ export default function SanctionsPage() {
   const { lang } = useLang()
   const es = lang === 'es'
   const toast = useToast()
-  const fc = useCurrency().formatCurrency
+  const { formatCurrency } = useCurrency()
   const [showCreate, setShowCreate] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [form, setForm] = useState({ employeeId: '', type: 'tardanza', severity: 'leve', date: new Date().toISOString().split('T')[0], description: '', deductionHours: '', evidence: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState({
+    employeeId: '',
+    type: 'tardanza',
+    severity: 'leve',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    deductionHours: '',
+    evidence: '',
+  })
 
   const { data, loading, invalidate } = useFetch(() => sanctions.list(filter === 'all' ? {} : { status: filter }), { key: `sanctions-${filter}`, deps: [filter] })
   const { data: statsData } = useFetch(() => sanctions.stats(), { key: 'sanctions-stats' })
@@ -44,130 +57,238 @@ export default function SanctionsPage() {
 
   const list = data?.data || data || []
   const stats = statsData?.data || statsData || {}
-  const empList = (empsData?.data || empsData || []).map(e => ({ value: e.id, label: e.name }))
+  const empList = (empsData?.data || empsData || []).map((employee) => ({ value: String(employee.id), label: employee.name }))
 
-  const set = (k) => (v) => setForm(f => ({ ...f, [k]: v?.target?.value ?? v }))
+  const setField = (key) => (event) => {
+    setForm((current) => ({ ...current, [key]: event.target.value }))
+  }
 
   const handleCreate = async () => {
-    if (!form.employeeId || !form.description) return toast.error(es ? 'Complete los campos' : 'Fill required fields')
+    if (!form.employeeId || !form.description) {
+      toast.error(es ? 'Completa empleado y descripción.' : 'Complete employee and description.')
+      return
+    }
+
+    setSubmitting(true)
     try {
       await sanctions.create({ ...form, deductionHours: Number(form.deductionHours) || 0 })
-      toast.success(es ? 'Sanción registrada' : 'Sanction created')
+      toast.success(es ? 'Caso disciplinario registrado' : 'Disciplinary case created')
       setShowCreate(false)
-      setForm({ employeeId: '', type: 'tardanza', severity: 'leve', date: new Date().toISOString().split('T')[0], description: '', deductionHours: '', evidence: '' })
+      setForm({
+        employeeId: '',
+        type: 'tardanza',
+        severity: 'leve',
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        deductionHours: '',
+        evidence: '',
+      })
       invalidate()
-    } catch { toast.error('Error') }
+    } catch {
+      toast.error(es ? 'No fue posible registrar la sanción' : 'Could not create sanction')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleAction = async (id, action) => {
     try {
       if (action === 'confirm') await sanctions.confirm(id)
       else await sanctions.dismiss(id)
-      toast.success(action === 'confirm' ? (es ? 'Sanción confirmada' : 'Confirmed') : (es ? 'Sanción desestimada' : 'Dismissed'))
+      toast.success(
+        action === 'confirm'
+          ? (es ? 'Validada por coordinación y notificada por correo' : 'Validated by coordinator and emailed')
+          : (es ? 'Sanción desestimada' : 'Sanction dismissed')
+      )
       invalidate()
-    } catch { toast.error('Error') }
+    } catch {
+      toast.error(es ? 'No se pudo actualizar el caso' : 'Could not update the case')
+    }
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-500">{es ? 'Gestión de observaciones, sanciones y descuentos por turno.' : 'Manage observations, sanctions and shift deductions.'}</p>
-        </div>
-        <Button onClick={() => setShowCreate(true)} icon="add">{es ? 'Reportar' : 'Report'}</Button>
+    <div className="mx-auto max-w-[1320px] space-y-6">
+      <div>
+        <p className="text-sm text-slate-500">
+          {es ? 'Gestiona observaciones disciplinarias con validación del coordinador, acta y envío automático al correo del empleado.' : 'Manage disciplinary observations with coordinator validation, letter generation and automatic employee email delivery.'}
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard label={es ? 'Total' : 'Total'} value={String(stats.total || 0)} icon="gavel" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label={es ? 'Casos' : 'Cases'} value={String(stats.total || 0)} icon="gavel" />
         <StatCard label={es ? 'Pendientes' : 'Pending'} value={String(stats.pending || 0)} icon="hourglass_top" iconColor="text-amber-600 bg-amber-50" />
-        <StatCard label={es ? 'Confirmadas' : 'Confirmed'} value={String(stats.confirmed || 0)} icon="check_circle" iconColor="text-red-600 bg-red-50" />
-        <StatCard label={es ? 'Total Descuentos' : 'Total Deductions'} value={fc(stats.totalDeduction || 0)} icon="money_off" iconColor="text-red-600 bg-red-50" />
+        <StatCard label={es ? 'Confirmadas' : 'Confirmed'} value={String(stats.confirmed || 0)} icon="mark_email_read" iconColor="text-red-600 bg-red-50" />
+        <StatCard label={es ? 'Descuentos' : 'Deductions'} value={formatCurrency(stats.totalDeduction || 0)} icon="money_off" iconColor="text-red-600 bg-red-50" />
       </div>
 
-      <div className="flex gap-2">
-        {[
-          { key: 'all', label: es ? 'Todas' : 'All' },
-          { key: 'pending', label: es ? 'Pendientes' : 'Pending' },
-          { key: 'confirmed', label: es ? 'Confirmadas' : 'Confirmed' },
-          { key: 'dismissed', label: es ? 'Desestimadas' : 'Dismissed' },
-        ].map(f => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f.key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-3 rounded-[--radius-xl] border border-slate-200 bg-white/88 p-4 shadow-[--shadow-md] md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: 'all', label: es ? 'Todas' : 'All' },
+            { key: 'pending', label: es ? 'Pendientes' : 'Pending' },
+            { key: 'confirmed', label: es ? 'Confirmadas' : 'Confirmed' },
+            { key: 'dismissed', label: es ? 'Desestimadas' : 'Dismissed' },
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setFilter(item.key)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition ${filter === item.key ? 'bg-slate-900 text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <Button icon="add" onClick={() => setShowCreate(true)}>
+          {es ? 'Nuevo caso disciplinario' : 'New disciplinary case'}
+        </Button>
       </div>
 
       {loading ? (
-        <div className="text-center py-12"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>
+        <AppLoader
+          inline
+          label={es ? 'Cargando sanciones' : 'Loading sanctions'}
+          detail={es ? 'Preparando casos, validaciones y notificaciones.' : 'Preparing cases, validations and notifications.'}
+        />
       ) : list.length === 0 ? (
-        <div className="text-center py-16">
-          <span className="material-symbols-outlined text-5xl text-gray-300 block mb-2">verified_user</span>
-          <p className="text-gray-400">{es ? 'Sin sanciones registradas' : 'No sanctions recorded'}</p>
+        <div className="rounded-[--radius-xl] border border-dashed border-slate-300 bg-white/88 px-6 py-16 text-center">
+          <span className="material-symbols-outlined text-[42px] text-slate-300">gavel</span>
+          <p className="mt-4 text-lg font-semibold text-slate-900">{es ? 'No hay sanciones registradas' : 'No sanctions registered'}</p>
+          <p className="mt-2 text-sm text-slate-500">{es ? 'Cuando aparezcan casos disciplinarios, aquí verás validación, correo y soporte.' : 'When disciplinary cases appear, validation, email and supporting files will show here.'}</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {list.map(s => (
-            <div key={s.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <div className="flex items-start gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.severity === 'grave' ? 'bg-red-100 text-red-600' : s.severity === 'moderada' ? 'bg-amber-100 text-amber-600' : 'bg-yellow-100 text-yellow-600'}`}>
-                  <span className="material-symbols-outlined">{typeIcons[s.type] || 'warning'}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-gray-900">{s.employee?.name}</span>
-                    <Badge color={sevColors[s.severity] || 'neutral'}>{s.severity}</Badge>
-                    <Badge color={statusColors[s.status] || 'neutral'}>
-                      {s.status === 'pending' ? (es ? 'Pendiente' : 'Pending') : s.status === 'confirmed' ? (es ? 'Confirmada' : 'Confirmed') : s.status === 'dismissed' ? (es ? 'Desestimada' : 'Dismissed') : s.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {typeOpts.find(t => t.value === s.type)?.label || s.type} — {s.date}
-                    {s.reporter && <span> — {es ? 'Reportado por' : 'Reported by'} {s.reporter.name}</span>}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">{s.description}</p>
-                  {(s.deductionHours > 0 || s.deductionAmount > 0) && (
-                    <div className="mt-2 inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-lg">
-                      <span className="material-symbols-outlined text-[14px]">money_off</span>
-                      {es ? 'Descuento' : 'Deduction'}: {s.deductionHours}h — {fc(Number(s.deductionAmount) || 0)}
+        <div className="grid gap-4 xl:grid-cols-2">
+          {list.map((sanction) => {
+            const workflow = [
+              { label: es ? 'Reporte' : 'Reported', done: true },
+              { label: es ? 'Validación coordinador' : 'Coordinator approval', done: Boolean(sanction.coordinatorApprovalAt) },
+              { label: es ? 'Correo enviado' : 'Email sent', done: Boolean(sanction.emailSentAt) },
+            ]
+
+            return (
+              <article key={sanction.id} className="overflow-hidden rounded-[--radius-xl] border border-slate-200 bg-white shadow-[--shadow-md]">
+                <div className="border-b border-slate-200/80 bg-[linear-gradient(135deg,_rgba(239,68,68,0.08),_rgba(255,255,255,0.96))] px-5 py-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${sanction.severity === 'grave' ? 'bg-red-100 text-red-600' : sanction.severity === 'moderada' ? 'bg-amber-100 text-amber-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                        <span className="material-symbols-outlined text-[22px]">{typeIcons[sanction.type] || 'warning'}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Avatar name={sanction.employee?.name || '?'} size="sm" />
+                          <p className="truncate text-lg font-bold tracking-tight text-slate-900">{sanction.employee?.name}</p>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-500">{sanction.description}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-                {s.status === 'pending' && (
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => handleAction(s.id, 'dismiss')}
-                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-semibold transition-colors">
-                      {es ? 'Desestimar' : 'Dismiss'}
-                    </button>
-                    <button onClick={() => handleAction(s.id, 'confirm')}
-                      className="px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 text-xs font-semibold transition-colors">
-                      {es ? 'Confirmar' : 'Confirm'}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge color={sevColors[sanction.severity] || 'neutral'}>{sanction.severity}</Badge>
+                      <Badge color={statusColors[sanction.status] || 'neutral'}>
+                        {sanction.status === 'pending'
+                          ? (es ? 'Pendiente' : 'Pending')
+                          : sanction.status === 'confirmed'
+                            ? (es ? 'Confirmada' : 'Confirmed')
+                            : sanction.status === 'dismissed'
+                              ? (es ? 'Desestimada' : 'Dismissed')
+                              : sanction.status}
+                      </Badge>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
+                </div>
+
+                <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {[
+                        `${typeOpts.find((item) => item.value === sanction.type)?.label || sanction.type} · ${sanction.date}`,
+                        `${es ? 'Reportado por' : 'Reported by'} ${sanction.reporter?.name || '-'}`,
+                        `${es ? 'Descuento' : 'Deduction'} ${sanction.deductionHours || 0}h / ${formatCurrency(Number(sanction.deductionAmount) || 0)}`,
+                      ].map((item) => (
+                        <span key={item} className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="rounded-[--radius-lg] border border-slate-200 bg-slate-50/80 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        {es ? 'Flujo disciplinario' : 'Disciplinary workflow'}
+                      </p>
+                      <div className="mt-4 grid gap-3">
+                        {workflow.map((step, index) => (
+                          <div key={step.label} className="flex items-center gap-3 rounded-[--radius-md] bg-white px-4 py-3 ring-1 ring-slate-200">
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${step.done ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                              {step.done ? <span className="material-symbols-outlined text-[16px]">check</span> : index + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-900">{step.label}</p>
+                              {index === 1 && sanction.coordinatorApprovalAt && (
+                                <p className="text-xs text-slate-500">{sanction.coordinatorName} · {sanction.coordinatorApprovalAt.slice(0, 16).replace('T', ' · ')}</p>
+                              )}
+                              {index === 2 && sanction.emailSentAt && (
+                                <p className="text-xs text-slate-500">{sanction.emailSentAt.slice(0, 16).replace('T', ' · ')}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-[--radius-lg] border border-slate-200 bg-white p-4">
+                    <div className="rounded-[--radius-md] bg-slate-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{es ? 'Soporte disciplinario' : 'Sanction letter'}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {es ? 'Acta lista para exportar o revisar antes de la notificación.' : 'Letter ready to review or export before notification.'}
+                      </p>
+                    </div>
+                    <Button variant="secondary" icon="description" onClick={() => window.open(sanction.letterUrl, '_blank', 'noopener,noreferrer')}>
+                      {es ? 'Ver acta' : 'View letter'}
+                    </Button>
+                    {sanction.status === 'pending' ? (
+                      <>
+                        <Button variant="danger" icon="close" onClick={() => handleAction(sanction.id, 'dismiss')}>
+                          {es ? 'Desestimar' : 'Dismiss'}
+                        </Button>
+                        <Button icon="mark_email_read" onClick={() => handleAction(sanction.id, 'confirm')}>
+                          {es ? 'Validar y enviar correo' : 'Validate and send email'}
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="rounded-[--radius-md] border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-700">
+                        {sanction.emailSentAt
+                          ? (es ? 'El empleado ya recibió el correo automático con la sanción.' : 'The employee already received the automatic email with the sanction.')
+                          : (es ? 'Caso cerrado.' : 'Case closed.')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
 
-      {/* Create modal */}
       {showCreate && (
-        <Modal open title={es ? 'Reportar Sanción' : 'Report Sanction'} icon="gavel" onClose={() => setShowCreate(false)} size="md">
-          <div className="p-6 space-y-4">
-            <Select label={es ? 'Empleado' : 'Employee'} value={form.employeeId} onChange={set('employeeId')} options={[{ value: '', label: es ? 'Seleccionar...' : 'Select...' }, ...empList]} />
-            <div className="grid grid-cols-2 gap-4">
-              <Select label={es ? 'Tipo' : 'Type'} value={form.type} onChange={set('type')} options={typeOpts} />
-              <Select label={es ? 'Gravedad' : 'Severity'} value={form.severity} onChange={set('severity')} options={sevOpts} />
-            </div>
-            <DatePicker label={es ? 'Fecha del incidente' : 'Incident date'} value={form.date} onChange={set('date')} />
-            <Input label={es ? 'Descripción' : 'Description'} value={form.description} onChange={set('description')} placeholder={es ? 'Detalle de la observación...' : 'Observation details...'} />
-            <Input label={es ? 'Horas a descontar' : 'Hours to deduct'} value={form.deductionHours} onChange={set('deductionHours')} type="number" placeholder="0" />
-            <Input label={es ? 'Evidencia / Notas' : 'Evidence / Notes'} value={form.evidence} onChange={set('evidence')} placeholder={es ? 'Notas adicionales...' : 'Additional notes...'} />
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowCreate(false)} className="flex-1">{es ? 'Cancelar' : 'Cancel'}</Button>
-              <Button onClick={handleCreate} className="flex-1" icon="gavel">{es ? 'Registrar Sanción' : 'Submit Sanction'}</Button>
-            </div>
+        <Modal
+          open
+          title={es ? 'Nuevo caso disciplinario' : 'New disciplinary case'}
+          subtitle={es ? 'Se registra, luego lo valida coordinación y se notifica automáticamente al empleado.' : 'It is recorded first, then validated by the coordinator and emailed to the employee automatically.'}
+          icon="gavel"
+          onClose={() => setShowCreate(false)}
+          size="lg"
+        >
+          <div className="grid gap-4 p-6 md:grid-cols-2">
+            <Select label={es ? 'Empleado' : 'Employee'} value={form.employeeId} onChange={setField('employeeId')} options={[{ value: '', label: es ? 'Seleccionar...' : 'Select...' }, ...empList]} />
+            <Select label={es ? 'Tipo' : 'Type'} value={form.type} onChange={setField('type')} options={typeOpts} />
+            <Select label={es ? 'Gravedad' : 'Severity'} value={form.severity} onChange={setField('severity')} options={sevOpts} />
+            <DatePicker label={es ? 'Fecha del incidente' : 'Incident date'} value={form.date} onChange={(nextDate) => setForm((current) => ({ ...current, date: nextDate ? nextDate.toISOString().slice(0, 10) : '' }))} />
+            <Input label={es ? 'Horas a descontar' : 'Hours to deduct'} type="number" value={form.deductionHours} onChange={setField('deductionHours')} />
+            <Input label={es ? 'Evidencia resumida' : 'Evidence summary'} value={form.evidence} onChange={setField('evidence')} />
+            <Textarea className="md:col-span-2" rows={5} label={es ? 'Descripción del caso' : 'Case description'} value={form.description} onChange={setField('description')} />
+          </div>
+          <div className="flex gap-3 border-t border-slate-200/80 px-6 py-5">
+            <Button className="flex-1" variant="secondary" onClick={() => setShowCreate(false)}>{es ? 'Cancelar' : 'Cancel'}</Button>
+            <Button className="flex-1" icon="gavel" onClick={handleCreate} disabled={submitting}>{submitting ? '...' : (es ? 'Registrar caso' : 'Create case')}</Button>
           </div>
         </Modal>
       )}

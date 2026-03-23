@@ -1,163 +1,262 @@
-import { Link } from 'react-router-dom'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { reports } from '../../api/services'
-import useFetch from '../../hooks/useFetch'
+import { Link, useOutletContext } from 'react-router-dom'
+import StageHero from '../../components/lifecycle/StageHero'
 import StatCard from '../../components/ui/StatCard'
 import Card from '../../components/ui/Card'
+import AppLoader from '../../components/ui/AppLoader'
+import InteractivePanel from '../../components/ui/InteractivePanel'
+import { getStageTheme } from '../../config/theme'
 import { useLang } from '../../context/LangContext'
-import useCurrency from '../../hooks/useCurrency'
+import useFetch from '../../hooks/useFetch'
+import { copyFor } from '../../lib/locale'
+import { hrLifecycleService } from '../../services/hrLifecycleService'
 
-function TimeAgo({ date }) {
-  if (!date) return <span className="text-gray-400">--</span>
-  const diff = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return <span className="text-green-600 font-medium">ahora</span>
-  if (mins < 5) return <span className="text-green-600 font-medium">{mins}m</span>
-  if (mins < 60) return <span className="text-gray-500">{mins}m</span>
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return <span className="text-gray-400">{hrs}h</span>
-  return <span className="text-gray-400">{Math.floor(hrs / 24)}d</span>
+function localizeDashboard(lang, payload) {
+  return {
+    hero: {
+      eyebrow: copyFor(lang, payload.hero.eyebrow),
+      title: copyFor(lang, payload.hero.title),
+      description: copyFor(lang, payload.hero.description),
+      chips: payload.hero.chips.map((c) => ({ ...c, label: copyFor(lang, c.label) })),
+      snapshot: payload.hero.snapshot.map((i) => ({ label: copyFor(lang, i.label), value: i.value, helper: copyFor(lang, i.helper) })),
+    },
+    company: {
+      ...payload.company,
+      name: copyFor(lang, payload.company.name),
+      legalName: copyFor(lang, payload.company.legalName),
+      segment: copyFor(lang, payload.company.segment),
+      industry: copyFor(lang, payload.company.industry),
+      size: copyFor(lang, payload.company.size),
+      footprint: copyFor(lang, payload.company.footprint),
+      plan: copyFor(lang, payload.company.plan),
+      operatingModel: copyFor(lang, payload.company.operatingModel),
+      promise: copyFor(lang, payload.company.promise),
+      badges: payload.company.badges.map((b) => ({ ...b, label: copyFor(lang, b.label) })),
+      workspace: payload.company.workspace.map((i) => ({ ...i, label: copyFor(lang, i.label) })),
+    },
+    companyDashboard: {
+      title: copyFor(lang, payload.companyDashboard.title),
+      description: copyFor(lang, payload.companyDashboard.description),
+      lenses: payload.companyDashboard.lenses.map((i) => ({ ...i, title: copyFor(lang, i.title), description: copyFor(lang, i.description) })),
+      pulse: payload.companyDashboard.pulse.map((i) => ({ label: copyFor(lang, i.label), value: i.value, status: copyFor(lang, i.status) })),
+      modules: payload.companyDashboard.modules.map((i) => ({ ...i, title: copyFor(lang, i.title), description: copyFor(lang, i.description) })),
+    },
+    metrics: payload.metrics.map((m) => ({ ...m, label: copyFor(lang, m.label), change: copyFor(lang, m.change) })),
+    agenda: payload.agenda.map((i) => ({ ...i, title: copyFor(lang, i.title), detail: copyFor(lang, i.detail) })),
+    stages: payload.stages.map((s) => ({
+      ...s,
+      name: copyFor(lang, s.name),
+      shortLabel: copyFor(lang, s.shortLabel),
+      description: copyFor(lang, s.description),
+      stats: s.stats.map((st) => ({ ...st, label: copyFor(lang, st.label) })),
+    })),
+  }
 }
-
-function isOnline(date) {
-  if (!date) return false
-  return (Date.now() - new Date(date).getTime()) < 5 * 60000
-}
-
-const statusColors = { approved: 'text-green-600 bg-green-50', pending: 'text-amber-600 bg-amber-50', rejected: 'text-red-600 bg-red-50' }
-const statusLabels = { approved: 'Aprobada', pending: 'Pendiente', rejected: 'Rechazada' }
 
 export default function DashboardPage() {
-  const { t } = useLang()
-  const { formatCurrency } = useCurrency()
-  const { data, loading } = useFetch(() => reports.dashboard(), { key: 'dashboard' })
-  const d = data || {}
+  const { lang } = useLang()
+  const outletContext = useOutletContext()
+  const selectedCompanyId = outletContext?.selectedCompanyId
+
+  const { data, loading } = useFetch(() => hrLifecycleService.getDashboard(selectedCompanyId), {
+    key: `lifecycle-dashboard-${selectedCompanyId || 'default'}`,
+    deps: [selectedCompanyId],
+  })
+
+  if (loading || !data) {
+    return (
+      <AppLoader
+        inline
+        label={lang === 'es' ? 'Cargando dashboard' : 'Loading dashboard'}
+        detail={lang === 'es' ? 'Generando la vista principal.' : 'Generating the main view.'}
+      />
+    )
+  }
+
+  const l = localizeDashboard(lang, data)
+  const dt = getStageTheme('dashboard')
+  const es = lang === 'es'
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900">{t('welcome')}</h2>
-        <p className="mt-1 text-gray-500">{new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-      </div>
+    <div className="mx-auto max-w-[1440px] space-y-4 sm:space-y-6">
+      <StageHero
+        eyebrow={`${l.hero.eyebrow} · ${l.company.segment}`}
+        title={l.hero.title}
+        description={l.hero.description}
+        chips={l.hero.chips}
+        snapshot={l.hero.snapshot}
+        icon="hub"
+        theme={dt}
+      />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label={t('totalEmployees')} value={String(d.totalEmployees || 0)} icon="groups" />
-        <StatCard label={t('pendingRequests')} value={String(d.pendingRequests || 0)} icon="pending_actions" iconColor="text-warning bg-warning/10" />
-        <StatCard label={t('activeUsers')} value={String(d.activeToday || 0)} icon="fingerprint" iconColor="text-success bg-success/10" subtitle={t('attendance')} />
-        <StatCard label={t('monthlyPayroll')} value={d.monthlyPayroll ? formatCurrency(d.monthlyPayroll) : '$0'} icon="payments" iconColor="text-primary bg-primary/10" />
-      </div>
-
-      {loading && <div className="text-center text-gray-400 py-12">Cargando...</div>}
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title={t('overtimeHours') + ' ' + t('byDepartment')}>
-          <div className="p-4 h-56">
-            {(d.overtimeByDept?.length) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={d.overtimeByDept}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="dept" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} unit="h" />
-                  <Tooltip formatter={(v) => `${v}h`} />
-                  <Bar dataKey="hours" fill="#7e22ce" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <div className="flex items-center justify-center h-full text-gray-400 text-sm">Sin datos de horas extra</div>}
-          </div>
-        </Card>
-
-        <Card title="Turnos esta semana">
-          <div className="p-4 h-56">
-            {(d.weekShifts?.length) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={d.weekShifts} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis dataKey="employee" type="category" tick={{ fontSize: 11 }} width={100} />
-                  <Tooltip />
-                  <Bar dataKey="shifts" fill="#a855f7" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <div className="flex items-center justify-center h-full text-gray-400 text-sm">Sin turnos esta semana</div>}
-          </div>
-        </Card>
-      </div>
-
-      {/* Activity Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's Shifts */}
-        <Card title="Turnos de hoy">
-          <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
-            {d.todayShifts?.length ? d.todayShifts.map((s, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm">
-                <span className="material-symbols-outlined text-primary text-lg">schedule</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{s.employee}</p>
-                  <p className="text-gray-500 text-xs">{s.type} — {s.time}</p>
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <Card
+          title={es ? 'Empresa activa' : 'Active company'}
+          subtitle={es ? 'Contexto de la empresa activa.' : 'Active company context.'}
+          actions={<span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">{l.company.plan}</span>}
+        >
+          <div className="grid gap-4 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-xl sm:rounded-[--radius-lg] bg-slate-900 text-white shadow-sm shrink-0">
+                <span className="material-symbols-outlined text-[20px] sm:text-[24px]">{l.company.icon}</span>
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">{l.company.name}</h3>
+                <p className="mt-0.5 text-xs sm:text-sm text-slate-500 truncate">{l.company.legalName}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {l.company.badges.map((b) => (
+                    <span key={b.label} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                      <span className="material-symbols-outlined text-[12px]">{b.icon}</span>
+                      {b.label}
+                    </span>
+                  ))}
                 </div>
               </div>
-            )) : <p className="text-gray-400 text-sm text-center py-6">Sin turnos hoy</p>}
-          </div>
-        </Card>
+            </div>
 
-        {/* Recent Requests */}
-        <Card title="Solicitudes recientes">
-          <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
-            {d.requests?.length ? d.requests.map(r => (
-              <div key={r.id} className="flex items-center gap-3 text-sm">
-                <span className="material-symbols-outlined text-amber-500 text-lg">pending_actions</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{r.employee}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs capitalize">{r.type}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColors[r.status] || ''}`}>{statusLabels[r.status] || r.status}</span>
+            <p className="text-xs sm:text-sm leading-5 text-slate-600">{l.company.promise}</p>
+
+            <div className="grid gap-2.5 grid-cols-3">
+              {l.company.workspace.map((item) => (
+                <InteractivePanel key={item.label} className="border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+                  <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl sm:rounded-2xl bg-white text-slate-700 shadow-sm">
+                    <span className="material-symbols-outlined text-[16px] sm:text-[18px]">{item.icon}</span>
                   </div>
+                  <p className="mt-2 sm:mt-4 text-lg sm:text-2xl font-bold text-slate-900">{item.value}</p>
+                  <p className="mt-0.5 text-[9px] sm:text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 truncate">{item.label}</p>
+                </InteractivePanel>
+              ))}
+            </div>
+
+            <div className="grid gap-2 grid-cols-2">
+              {[
+                { k: es ? 'Industria' : 'Industry', v: l.company.industry },
+                { k: es ? 'Escala' : 'Scale', v: l.company.size },
+                { k: es ? 'Cobertura' : 'Footprint', v: l.company.footprint },
+                { k: es ? 'Modelo' : 'Model', v: l.company.operatingModel },
+              ].map((item) => (
+                <div key={item.k} className="rounded-[--radius-sm] sm:rounded-[--radius-lg] border border-slate-200 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{item.k}</p>
+                  <p className="mt-0.5 text-xs sm:text-sm font-semibold text-slate-900 truncate">{item.v}</p>
                 </div>
-                <span className="text-gray-400 text-xs whitespace-nowrap"><TimeAgo date={r.date} /></span>
-              </div>
-            )) : <p className="text-gray-400 text-sm text-center py-6">Sin solicitudes</p>}
-            {d.requests?.length > 0 && <Link to="/requests" className="block text-center text-xs text-primary hover:underline mt-2">Ver todas</Link>}
+              ))}
+            </div>
           </div>
         </Card>
 
-        {/* Online Users */}
-        <Card title="Personas en linea">
-          <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
-            {d.onlineUsers?.length ? d.onlineUsers.map(u => (
-              <div key={u.id} className="flex items-center gap-3 py-1.5">
-                <div className="relative">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                    {u.name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </div>
-                  <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${isOnline(u.lastSeenAt) ? 'bg-green-500' : 'bg-gray-300'}`} />
+        <Card title={l.companyDashboard.title} subtitle={l.companyDashboard.description}>
+          <div className="grid gap-3 p-4 sm:p-5 sm:grid-cols-3">
+            {l.companyDashboard.lenses.map((lens) => (
+              <InteractivePanel key={lens.title} className="border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-primary/5 p-3 sm:p-4">
+                <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl bg-slate-900 text-white">
+                  <span className="material-symbols-outlined text-[18px] sm:text-[20px]">{lens.icon}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
-                  <p className="text-[11px] text-gray-400 capitalize">{u.role}</p>
-                </div>
-                <div className="text-xs"><TimeAgo date={u.lastSeenAt} /></div>
-              </div>
-            )) : <p className="text-gray-400 text-sm text-center py-6">Sin usuarios</p>}
+                <h3 className="mt-3 text-sm sm:text-base font-semibold text-slate-900">{lens.title}</h3>
+                <p className="mt-1.5 text-xs sm:text-sm leading-5 text-slate-600">{lens.description}</p>
+              </InteractivePanel>
+            ))}
           </div>
         </Card>
       </div>
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { icon: 'pending_actions', label: t('requests'), to: '/requests', color: 'text-warning bg-warning/10' },
-          { icon: 'calendar_month', label: t('schedule'), to: '/schedule', color: 'text-primary bg-primary/10' },
-          { icon: 'analytics', label: t('reports'), to: '/reports', color: 'text-purple-500 bg-purple-50' },
-          { icon: 'fingerprint', label: t('attendance'), to: '/attendance', color: 'text-success bg-success/10' },
-        ].map((item, i) => (
-          <Link key={i} to={item.to} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-primary/50 hover:shadow-md transition-all">
-            <span className={`material-symbols-outlined p-2 rounded-lg ${item.color}`}>{item.icon}</span>
-            <span className="text-xs font-medium text-gray-700">{item.label}</span>
-          </Link>
+      <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+        {l.metrics.map((m) => (
+          <StatCard key={m.label} label={m.label} value={m.value} change={m.change} icon={m.icon} iconColor={dt.metricIcon} />
         ))}
+      </div>
+
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {l.stages.map((stage) => {
+          const theme = getStageTheme(stage.id)
+          return (
+            <InteractivePanel key={stage.id} className={`border ${theme.border} bg-white/82 p-4 sm:p-5 backdrop-blur-sm`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl ${theme.iconWrap}`}>
+                  <span className="material-symbols-outlined text-[20px] sm:text-[24px]">{stage.icon}</span>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold ring-1 ring-inset ${theme.badge}`}>
+                  {stage.shortLabel}
+                </span>
+              </div>
+
+              <div className="mt-3 sm:mt-5">
+                <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">{stage.name}</h3>
+                <p className="mt-1.5 text-xs sm:text-sm leading-5 text-slate-600">{stage.description}</p>
+              </div>
+
+              <div className="mt-3 sm:mt-5 space-y-2">
+                {stage.stats.map((stat) => (
+                  <div key={stat.label} className={`flex items-center justify-between rounded-[--radius-sm] sm:rounded-[--radius-md] border ${theme.border} px-3 py-2.5`}>
+                    <span className="text-xs sm:text-sm text-slate-500 truncate">{stat.label}</span>
+                    <span className="text-xs sm:text-sm font-semibold text-slate-900 shrink-0 ml-2">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 sm:mt-5">
+                <div className="flex items-center justify-between text-[10px] sm:text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  <span>{es ? 'Madurez' : 'Maturity'}</span>
+                  <span>{stage.progress}%</span>
+                </div>
+                <div className={`mt-1.5 h-1.5 sm:h-2 overflow-hidden rounded-full ${theme.progressTrack}`}>
+                  <div className={`h-full rounded-full transition-all duration-700 ${theme.progressFill}`} style={{ width: `${stage.progress}%` }} />
+                </div>
+              </div>
+
+              <Link to={stage.route} className={`mt-3 sm:mt-5 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${theme.link}`}>
+                <span>{es ? 'Abrir etapa' : 'Open stage'}</span>
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </Link>
+            </InteractivePanel>
+          )
+        })}
+      </div>
+
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+        <Card title={es ? 'Pulso operativo' : 'Operational pulse'} subtitle={es ? 'Indicadores clave.' : 'Key indicators.'}>
+          <div className="space-y-2.5 p-4 sm:p-5">
+            {l.companyDashboard.pulse.map((item) => (
+              <div key={item.label} className="rounded-[--radius-md] border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{item.label}</p>
+                    <p className="mt-0.5 text-[10px] sm:text-xs uppercase tracking-[0.12em] text-slate-400">{item.status}</p>
+                  </div>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900 shrink-0">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title={es ? 'Agenda operativa' : 'Operational agenda'} subtitle={es ? 'Prioridades del equipo HR.' : 'HR team priorities.'}>
+          <div className="space-y-2.5 p-4 sm:p-5">
+            {l.agenda.map((item) => (
+              <div key={`${item.time}-${item.title}`} className="flex gap-3 rounded-[--radius-md] border border-slate-200/80 bg-slate-50/70 p-3 sm:p-4">
+                <div className="min-w-12 sm:min-w-16 rounded-xl sm:rounded-2xl bg-slate-900 px-2 py-1.5 sm:px-3 sm:py-2 text-center text-xs sm:text-sm font-semibold text-white shrink-0">
+                  {item.time}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
+                  <p className="mt-0.5 text-xs sm:text-sm text-slate-600">{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title={es ? 'Módulos activos' : 'Active modules'} subtitle={es ? 'Módulos de la operación.' : 'Operation modules.'}>
+          <div className="space-y-2.5 p-4 sm:p-5">
+            {l.companyDashboard.modules.map((item) => (
+              <article key={item.title} className="rounded-[--radius-md] border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl sm:rounded-2xl bg-white text-slate-700 shadow-sm">
+                  <span className="material-symbols-outlined text-[16px] sm:text-[18px]">{item.icon}</span>
+                </div>
+                <h3 className="mt-2.5 text-sm font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-1 text-xs sm:text-sm leading-5 text-slate-600">{item.description}</p>
+              </article>
+            ))}
+          </div>
+        </Card>
       </div>
     </div>
   )

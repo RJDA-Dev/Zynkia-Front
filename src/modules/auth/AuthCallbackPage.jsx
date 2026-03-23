@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import Spinner from '../../components/ui/Spinner'
 
 export default function AuthCallbackPage() {
   const [params] = useSearchParams()
@@ -20,7 +21,7 @@ export default function AuthCallbackPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <Spinner />
     </div>
   )
 }

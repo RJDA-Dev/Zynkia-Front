@@ -62,7 +62,7 @@ export default function LocalizationPage() {
             ]} />
           </div>
           <p className="text-sm text-gray-500 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[16px] text-green-600">check_circle</span>
+            <span className="material-symbols-outlined text-[16px] text-success">check_circle</span>
             {es ? 'Hora actual' : 'Current time'}: {new Date().toLocaleTimeString(es ? 'es-CO' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: form.timeFormat === '12h' })}
           </p>
         </div>

@@ -1,11 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Modal from '../../components/ui/Modal'
 import Toggle from '../../components/ui/Toggle'
 import { useLang } from '../../context/LangContext'
 import Button from '../../components/ui/Button'
 import Avatar from '../../components/ui/Avatar'
+import Input from '../../components/ui/Input'
+import DatePicker from '../../components/ui/DatePicker'
+import Textarea from '../../components/ui/Textarea'
+import RangeSlider from '../../components/ui/RangeSlider'
 import { useToast } from '../../context/ToastContext'
-import { schedule as scheduleService, departments as deptService, employees as empService } from '../../api/services'
+import { schedule as scheduleService, employees as empService } from '../../api/services'
 
 const shiftColors = {
   blue: { bg: 'bg-blue-50 border-blue-400', text: 'text-blue-700', dot: 'bg-blue-500' },
@@ -26,7 +30,7 @@ const DEFAULT_PROMPT = `Instrucciones adicionales para la IA:
 - Priorizar turnos de mañana para empleados con hijos
 - Evitar turnos nocturnos consecutivos`
 
-export default function ShiftGeneratorModal({ open, onClose }) {
+export default function ShiftGeneratorModal({ open, onClose, onApplied }) {
   const { lang } = useLang()
   const es = lang === 'es'
   const toast = useToast()
@@ -45,7 +49,6 @@ export default function ShiftGeneratorModal({ open, onClose }) {
   const [result, setResult] = useState(null)
 
   // Employees
-  const [depts, setDepts] = useState([])
   const [allEmps, setAllEmps] = useState([])
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState('')
@@ -57,11 +60,6 @@ export default function ShiftGeneratorModal({ open, onClose }) {
     setDateFrom(f); setDateTo(t)
     setStep(0); setResult(null); setSelected([]); setSearch('')
     setCustomPrompt(''); setShowPrompt(false)
-    // Load departments + all employees
-    deptService.list().then(r => {
-      const list = r?.data?.data || r?.data || []
-      setDepts(list)
-    }).catch(() => {})
     empService.list().then(r => {
       const raw = r?.data?.data || r?.data || {}
       const emps = Array.isArray(raw) ? raw : (raw.data || [])
@@ -144,17 +142,25 @@ export default function ShiftGeneratorModal({ open, onClose }) {
     setApplying(true)
     try {
       const grouped = {}
+      const createdMap = {}
       result.shifts.forEach(s => {
         const k = `${s.employeeId}-${s.shiftType}`
         if (!grouped[k]) grouped[k] = { ...s, dates: [] }
         grouped[k].dates.push(s.date)
       })
       for (const g of Object.values(grouped)) {
-        await scheduleService.createShifts({
+        const response = await scheduleService.createShifts({
           employeeId: g.employeeId, dates: g.dates,
           shiftType: g.shiftType, startTime: g.startTime, endTime: g.endTime, color: g.color,
         })
+        const created = response?.data?.data || response?.data || response
+        if (created && typeof created === 'object') {
+          Object.entries(created).forEach(([dateKey, entries]) => {
+            createdMap[dateKey] = [...(createdMap[dateKey] || []), ...entries]
+          })
+        }
       }
+      onApplied?.(createdMap)
       toast.success(es ? 'Turnos aplicados' : 'Shifts applied')
       onClose()
     } catch { toast.error(es ? 'Error al aplicar' : 'Error applying') }
@@ -202,16 +208,16 @@ export default function ShiftGeneratorModal({ open, onClose }) {
                 {es ? 'Rango de Fechas' : 'Date Range'}
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">{es ? 'Desde' : 'From'}</label>
-                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                    className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">{es ? 'Hasta' : 'To'}</label>
-                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                    className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
-                </div>
+                <DatePicker
+                  label={es ? 'Desde' : 'From'}
+                  value={dateFrom}
+                  onChange={nextDate => setDateFrom(nextDate ? nextDate.toISOString().slice(0, 10) : '')}
+                />
+                <DatePicker
+                  label={es ? 'Hasta' : 'To'}
+                  value={dateTo}
+                  onChange={nextDate => setDateTo(nextDate ? nextDate.toISOString().slice(0, 10) : '')}
+                />
               </div>
               <p className="text-[10px] text-gray-400 mt-1">{weekDates.length} {es ? 'días' : 'days'}</p>
             </div>
@@ -237,13 +243,14 @@ export default function ShiftGeneratorModal({ open, onClose }) {
 
             {/* Constraints */}
             <div className="space-y-3">
-              <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-gray-700">{es ? 'Descanso mínimo' : 'Min rest'}</span>
-                  <span className="text-xs font-bold text-primary">{restHours}h</span>
-                </div>
-                <input type="range" min="8" max="16" value={restHours} onChange={e => setRestHours(+e.target.value)} className="w-full h-1.5 accent-primary cursor-pointer" />
-              </div>
+              <RangeSlider
+                label={es ? 'Descanso mínimo' : 'Min rest'}
+                value={restHours}
+                min={8}
+                max={16}
+                suffix="h"
+                onChange={e => setRestHours(+e.target.value)}
+              />
               <Toggle label={es ? 'Evitar horas extra' : 'Avoid overtime'} checked={avoidOT} onChange={() => setAvoidOT(!avoidOT)} />
             </div>
 
@@ -258,10 +265,13 @@ export default function ShiftGeneratorModal({ open, onClose }) {
               </button>
               {showPrompt && (
                 <div className="mt-2">
-                  <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}
+                  <Textarea
+                    value={customPrompt}
+                    onChange={e => setCustomPrompt(e.target.value)}
                     placeholder={DEFAULT_PROMPT}
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none resize-none placeholder:text-gray-400" />
+                    className="[&_textarea]:min-h-[120px] [&_textarea]:text-xs"
+                  />
                   <p className="text-[10px] text-gray-400 mt-1">{es ? 'La IA mantendrá las restricciones base + tus instrucciones' : 'AI will keep base constraints + your instructions'}</p>
                 </div>
               )}
@@ -286,12 +296,13 @@ export default function ShiftGeneratorModal({ open, onClose }) {
                 )}
               </div>
               <div className="px-4 py-2 border-b border-gray-100 bg-white shrink-0">
-                <div className="relative">
-                  <span className="material-symbols-outlined text-[16px] text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2">search</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)}
-                    placeholder={es ? 'Buscar empleado...' : 'Search employee...'}
-                    className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
-                </div>
+                <Input
+                  icon="search"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={es ? 'Buscar empleado...' : 'Search employee...'}
+                  className="[&_input]:py-2 [&_input]:text-xs"
+                />
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {Object.entries(grouped).map(([dept, emps]) => (
@@ -374,7 +385,7 @@ export default function ShiftGeneratorModal({ open, onClose }) {
               {dateFrom} → {dateTo}
             </h3>
             <div className="flex items-center gap-3 text-xs">
-              <span className="px-3 py-1.5 rounded-full bg-green-50 border border-green-100 text-green-700 font-medium">
+              <span className="px-3 py-1.5 rounded-full bg-success/10 border border-success/15 text-success font-medium">
                 {result?.shifts?.length || 0} {es ? 'turnos' : 'shifts'}
               </span>
               <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 font-medium">

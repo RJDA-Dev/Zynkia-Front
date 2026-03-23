@@ -7,6 +7,7 @@ import Avatar from '../../components/ui/Avatar'
 import DatePicker from '../../components/ui/DatePicker'
 import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
+import Textarea from '../../components/ui/Textarea'
 import TimePicker from '../../components/ui/TimePicker'
 import { useLang } from '../../context/LangContext'
 import { useToast } from '../../context/ToastContext'
@@ -152,26 +153,33 @@ export default function NewRequestPage() {
             </div>
             <div className="p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1.5">{es ? 'Tu turno' : 'Your shift'}</label>
-                  <select value={swapShift} onChange={e => setSwapShift(e.target.value)} className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none">
-                    <option value="">{es ? 'Selecciona...' : 'Select...'}</option>
-                    {shifts.map(s => <option key={s.id} value={s.id}>{fmtDate(s.date)} {fmtTime(s.startTime)}-{fmtTime(s.endTime)}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1.5">{es ? 'Companero' : 'Coworker'}</label>
-                  <select value={swapTarget} onChange={e => setSwapTarget(e.target.value)} className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none">
-                    <option value="">{es ? 'Selecciona...' : 'Select...'}</option>
-                    {coworkerList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
+                <Select
+                  label={es ? 'Tu turno' : 'Your shift'}
+                  value={swapShift}
+                  onChange={e => setSwapShift(e.target.value)}
+                  options={[
+                    { value: '', label: es ? 'Selecciona...' : 'Select...' },
+                    ...shifts.map(s => ({ value: s.id, label: `${fmtDate(s.date)} ${fmtTime(s.startTime)}-${fmtTime(s.endTime)}` })),
+                  ]}
+                />
+                <Select
+                  label={es ? 'Companero' : 'Coworker'}
+                  value={swapTarget}
+                  onChange={e => setSwapTarget(e.target.value)}
+                  options={[
+                    { value: '', label: es ? 'Selecciona...' : 'Select...' },
+                    ...coworkerList.map(c => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </div>
               <div className="flex flex-col sm:flex-row gap-3 items-end">
-                <div className="flex-1 w-full">
-                  <label className="text-xs font-semibold text-gray-600 block mb-1.5">{es ? 'Motivo' : 'Reason'} <span className="text-gray-300 font-normal">({es ? 'opcional' : 'optional'})</span></label>
-                  <input value={swapReason} onChange={e => setSwapReason(e.target.value)} placeholder={es ? 'Ej: Cita medica...' : 'E.g.: Medical appt...'} className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm focus:ring-2 focus:ring-primary outline-none" />
-                </div>
+                <Input
+                  className="flex-1 w-full"
+                  label={es ? 'Motivo' : 'Reason'}
+                  value={swapReason}
+                  onChange={e => setSwapReason(e.target.value)}
+                  placeholder={es ? 'Ej: Cita medica...' : 'E.g.: Medical appt...'}
+                />
                 <Button icon="send" onClick={handleSwap} disabled={submitting || !swapShift || !swapTarget} className="shrink-0 w-full sm:w-auto">{es ? 'Enviar' : 'Send'}</Button>
               </div>
             </div>
@@ -303,10 +311,13 @@ export default function NewRequestPage() {
                     {es ? 'Duracion:' : 'Duration:'} <span className="font-bold text-primary">{days} {days === 1 ? (es ? 'dia' : 'day') : (es ? 'dias' : 'days')}</span>
                   </div>
                 )}
-                <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Comentarios' : 'Comments'} <span className="text-gray-300 font-normal">({es ? 'opcional' : 'optional'})</span></label>
-                  <textarea value={form.comments} onChange={set('comments')} rows={2} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary" placeholder={es ? 'Detalles adicionales...' : 'Additional details...'} />
-                </div>
+                <Textarea
+                  rows={2}
+                  label={es ? 'Comentarios' : 'Comments'}
+                  value={form.comments}
+                  onChange={set('comments')}
+                  placeholder={es ? 'Detalles adicionales...' : 'Additional details...'}
+                />
                 <div>
                   <label className="text-xs font-semibold text-gray-700 block mb-1.5">{es ? 'Adjunto' : 'Attachment'} <span className="text-gray-300 font-normal">({es ? 'opcional' : 'optional'})</span></label>
                   <label className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-200 hover:border-primary/40 cursor-pointer transition-colors">

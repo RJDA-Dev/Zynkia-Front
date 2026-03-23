@@ -79,7 +79,6 @@ export default function AttendancePage() {
   const filtered = filter === 'all' ? records : records.filter(r => r.status === filter)
 
   const fmtTime = (v) => v ? new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'
-  const dayLabel = (d) => { const dt = new Date(d + 'T12:00:00'); return dt.toLocaleDateString(es ? 'es-CO' : 'en', { weekday: 'short', day: 'numeric' }) }
   const isToday = (d) => d === new Date().toISOString().split('T')[0]
   const isPast = (d) => d < new Date().toISOString().split('T')[0]
   const isWeekend = (d) => { const dow = new Date(d + 'T12:00:00').getDay(); return dow === 0 || dow === 6 }
@@ -110,7 +109,7 @@ export default function AttendancePage() {
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <p className="text-gray-500">{es ? 'Control de entrada y salida de empleados.' : 'Employee check-in and check-out control.'}</p>
         <div className="flex gap-3 items-center">
-          {tab === 'daily' && <DatePicker value={date} onChange={setDate} />}
+          {tab === 'daily' && <DatePicker value={date} onChange={(nextDate) => setDate(nextDate ? nextDate.toISOString().slice(0, 10) : '')} />}
           <div className="relative" ref={exportRef}>
             <Button variant="secondary" icon="download" onClick={() => setShowExport(!showExport)}>{t('export')}</Button>
             {showExport && (
@@ -195,7 +194,7 @@ export default function AttendancePage() {
                         if (we) return <td key={d} className="text-center px-2 py-2"><span className="text-gray-200 text-[10px]">--</span></td>
                         if (!r && isPast(d)) return <td key={d} className="text-center px-2 py-2"><span className="text-gray-300 text-[10px]">--</span></td>
                         if (!r) return <td key={d} className="text-center px-2 py-2" />
-                        const color = r.status === 'on_time' ? 'bg-green-100 text-green-700' : r.status === 'late' ? 'bg-amber-100 text-amber-700' : r.status === 'absent' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                        const color = r.status === 'on_time' ? 'bg-success/10 text-success' : r.status === 'late' ? 'bg-amber-100 text-amber-700' : r.status === 'absent' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                         return (
                           <td key={d} className="text-center px-1 py-2">
                             <div className={`rounded-md px-1 py-1 ${color}`}>

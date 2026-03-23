@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback } from 'react'
 
 const ToastContext = createContext(null)
@@ -8,17 +9,17 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
   const [confirm, setConfirm] = useState(null)
 
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t))
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 300)
+  }, [])
+
   const addToast = useCallback((message, type = 'info', duration = 4000) => {
     const id = ++toastId
     setToasts(prev => [...prev, { id, message, type }])
     if (duration > 0) setTimeout(() => removeToast(id), duration)
     return id
-  }, [])
-
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t))
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 300)
-  }, [])
+  }, [removeToast])
 
   const success = useCallback((msg) => addToast(msg, 'success'), [addToast])
   const error = useCallback((msg) => addToast(msg, 'error'), [addToast])
@@ -43,7 +44,7 @@ export function ToastProvider({ children }) {
 export const useToast = () => useContext(ToastContext)
 
 const icons = {
-  success: { icon: 'check_circle', color: 'text-green-500' },
+  success: { icon: 'check_circle', color: 'text-success' },
   error: { icon: 'error', color: 'text-red-500' },
   warning: { icon: 'warning', color: 'text-amber-500' },
   info: { icon: 'info', color: 'text-blue-500' },

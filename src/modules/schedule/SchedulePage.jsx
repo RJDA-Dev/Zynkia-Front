@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { schedule as scheduleService } from '../../api/services'
 import useFetch from '../../hooks/useFetch'
 import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
 import Tabs from '../../components/ui/Tabs'
@@ -21,6 +22,41 @@ const cBd = { blue: 'border-blue-400', purple: 'border-purple-400', amber: 'bord
 const cTx = { blue: 'text-blue-700', purple: 'text-purple-700', amber: 'text-amber-800', gray: 'text-gray-600', red: 'text-red-700' }
 const statusIcon = { leave: 'event_busy', absent: 'person_off', scheduled: '' }
 const dk = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+
+const normalizeShiftEntry = (entry) => {
+  const shiftType = entry?.shiftType || entry?.type || 'custom'
+  return {
+    ...entry,
+    type: shiftType,
+    shiftType,
+    color: entry?.color || 'blue',
+    status: entry?.status || 'scheduled',
+    time: entry?.startTime && entry?.endTime ? `${entry.startTime} - ${entry.endTime}` : entry?.time || '',
+  }
+}
+
+const mergeShiftMap = (current, incoming) => {
+  if (!incoming || typeof incoming !== 'object') return current
+
+  const next = { ...current }
+  Object.entries(incoming).forEach(([dateKey, entries]) => {
+    const incomingEntries = (Array.isArray(entries) ? entries : [entries]).filter(Boolean).map(normalizeShiftEntry)
+    const dayEntries = [...(next[dateKey] || [])]
+
+    incomingEntries.forEach((entry) => {
+      const existingIndex = entry.id
+        ? dayEntries.findIndex((item) => item.id && String(item.id) === String(entry.id))
+        : -1
+
+      if (existingIndex >= 0) dayEntries[existingIndex] = { ...dayEntries[existingIndex], ...entry }
+      else dayEntries.push(entry)
+    })
+
+    next[dateKey] = dayEntries
+  })
+
+  return next
+}
 
 export default function SchedulePage() {
   const { t, lang } = useLang()
@@ -43,37 +79,29 @@ export default function SchedulePage() {
     return d
   })
 
-  const loadMonth = (m) => {
+  const loadMonth = useCallback((m) => {
     scheduleService.month(year, m + 1).then(data => {
-      if (data && typeof data === 'object') setShifts(prev => ({ ...prev, ...data }))
+      if (data && typeof data === 'object') setShifts(prev => mergeShiftMap(prev, data))
     }).catch(() => {})
-  }
+  }, [year])
 
-  const loadWeek = () => {
+  const loadWeek = useCallback(() => {
     const months = new Set()
     for (let i = 0; i < 7; i++) {
       const d = new Date(weekStart); d.setDate(d.getDate() + i)
       months.add(`${d.getFullYear()}-${d.getMonth()}`)
     }
-    months.forEach(k => { const [y, m] = k.split('-').map(Number); scheduleService.month(y, m + 1).then(data => { if (data && typeof data === 'object') setShifts(prev => ({ ...prev, ...data })) }).catch(() => {}) })
-  }
+    months.forEach(k => { const [y, m] = k.split('-').map(Number); scheduleService.month(y, m + 1).then(data => { if (data && typeof data === 'object') setShifts(prev => mergeShiftMap(prev, data)) }).catch(() => {}) })
+  }, [weekStart])
 
   useEffect(() => {
     if (view === 'week') { loadWeek() }
     else if (exMonth !== null) { loadMonth(exMonth) }
     else { for (let m = 0; m < 12; m++) loadMonth(m) }
-  }, [year, exMonth, view, weekStart])
-
-  const refreshSchedule = () => {
-    if (view === 'week') loadWeek()
-    else if (exMonth !== null) loadMonth(exMonth)
-    else for (let m = 0; m < 12; m++) loadMonth(m)
-  }
+  }, [exMonth, loadMonth, loadWeek, view])
 
   const { data: statsData } = useFetch(() => scheduleService.stats(year), { key: `sched-stats-${year}`, deps: [year] })
   const stats = statsData?.data || statsData || {}
-
-  const total = useMemo(() => Object.values(shifts).reduce((a, b) => a + b.length, 0), [shifts])
 
   const draggedDays = useMemo(() => {
     if (!dragStart || !dragEnd || exMonth === null) return []
@@ -92,16 +120,30 @@ export default function SchedulePage() {
   }, [dragging, draggedDays])
 
   const handleShiftsCreated = (newShifts) => {
-    setShifts(prev => {
-      const copy = { ...prev }
-      Object.entries(newShifts).forEach(([key, val]) => {
-        copy[key] = [...(copy[key] || []), val]
-      })
-      return copy
-    })
+    setShifts(prev => mergeShiftMap(prev, newShifts))
     setDragStart(null)
     setDragEnd(null)
   }
+
+  const handleShiftUpdated = useCallback((updatedShift) => {
+    if (!updatedShift?.date) return
+    setShifts(prev => mergeShiftMap(prev, { [updatedShift.date]: [updatedShift] }))
+  }, [])
+
+  const handleShiftDeleted = useCallback(({ id, date }) => {
+    if (!id || !date) return
+    setShifts(prev => {
+      const currentDay = prev[date] || []
+      const nextDay = currentDay.filter(entry => String(entry.id) !== String(id))
+      if (nextDay.length === currentDay.length) return prev
+      if (nextDay.length === 0) {
+        const copy = { ...prev }
+        delete copy[date]
+        return copy
+      }
+      return { ...prev, [date]: nextDay }
+    })
+  }, [])
 
   const prevWeek = () => setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n })
   const nextWeek = () => setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n })
@@ -184,9 +226,9 @@ export default function SchedulePage() {
 
       {view === 'week' && <WeekView weekStart={weekStart} shifts={shifts} onEdit={s => setEditShift(s)} />}
 
-      <ShiftGeneratorModal open={showAI} onClose={() => { setShowAI(false); refreshSchedule() }} />
-      <CreateShiftModal open={showCreate} onClose={() => { setShowCreate(false); setDragStart(null); setDragEnd(null); refreshSchedule() }} selectedDays={draggedDays} onCreated={handleShiftsCreated} />
-      <EditShiftModal shift={editShift} onClose={() => { setEditShift(null); refreshSchedule() }} />
+      <ShiftGeneratorModal open={showAI} onClose={() => setShowAI(false)} onApplied={handleShiftsCreated} />
+      <CreateShiftModal open={showCreate} onClose={() => { setShowCreate(false); setDragStart(null); setDragEnd(null) }} selectedDays={draggedDays} onCreated={handleShiftsCreated} />
+      <EditShiftModal shift={editShift} onClose={() => setEditShift(null)} onSaved={handleShiftUpdated} onDeleted={handleShiftDeleted} />
     </div>
   )
 }
@@ -311,7 +353,7 @@ function SidePanel({ dk: dateKey, shifts, onClose, months, onEdit }) {
   const ds = shifts[dateKey] || []
 
   return (
-    <div className="hidden lg:block fixed right-0 top-0 h-full w-[350px] z-40 animate-slide-in">
+    <div className="hidden lg:block fixed right-0 top-0 h-full w-[380px] z-[100] animate-slide-in">
       <div className="h-full bg-white border-l border-gray-200 shadow-2xl shadow-gray-300/50 flex flex-col">
         <div className="bg-gradient-to-b from-primary to-purple-800 px-6 py-6 text-white relative overflow-hidden">
           <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10 blur-xl" />
@@ -333,7 +375,7 @@ function SidePanel({ dk: dateKey, shifts, onClose, months, onEdit }) {
             </div>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="app-scrollbar flex-1 overflow-y-auto p-5">
           {ds.length === 0 ? (
             <div className="text-center py-12 text-gray-300">
               <span className="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
@@ -400,7 +442,7 @@ function WeekView({ weekStart, shifts, onEdit }) {
 
   if (empList.length === 0) return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden animate-fade-in">
-      <div className="p-5 overflow-x-auto">
+      <div className="app-scrollbar p-5 overflow-x-auto">
         <div className="grid grid-cols-[180px_repeat(7,1fr)] gap-2 mb-3 min-w-[900px]">
           <div className="text-[10px] font-bold text-gray-400 uppercase self-end pb-1">Empleado</div>
           {weekDays.map((d, i) => {
@@ -424,7 +466,7 @@ function WeekView({ weekStart, shifts, onEdit }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-lg shadow-gray-200/50 overflow-hidden animate-fade-in">
-      <div className="p-5 overflow-x-auto">
+      <div className="app-scrollbar p-5 overflow-x-auto">
         <div className="grid grid-cols-[180px_repeat(7,1fr)] gap-2 mb-3 min-w-[900px]">
           <div className="text-[10px] font-bold text-gray-400 uppercase self-end pb-1">Empleado</div>
           {weekDays.map((d, i) => {
@@ -479,7 +521,7 @@ function WeekView({ weekStart, shifts, onEdit }) {
   )
 }
 
-function EditShiftModal({ shift, onClose }) {
+function EditShiftModal({ shift, onClose, onSaved, onDeleted }) {
   const [type, setType] = useState('morning')
   const [startTime, setStartTime] = useState('06:00')
   const [endTime, setEndTime] = useState('14:00')
@@ -509,6 +551,15 @@ function EditShiftModal({ shift, onClose }) {
     setSaving(true)
     try {
       await scheduleService.updateShift(shift.id, { shiftType: type, startTime, endTime, color })
+      onSaved?.({
+        ...shift,
+        shiftType: type,
+        type,
+        startTime,
+        endTime,
+        color,
+        time: `${startTime} - ${endTime}`,
+      })
       toast.success('Turno actualizado')
       onClose()
     } catch { toast.error('Error al actualizar') }
@@ -519,6 +570,7 @@ function EditShiftModal({ shift, onClose }) {
     setDeleting(true)
     try {
       await scheduleService.deleteShift(shift.id)
+      onDeleted?.({ id: shift.id, date: shift.date })
       toast.success('Turno eliminado')
       onClose()
     } catch { toast.error('Error al eliminar') }
@@ -526,7 +578,7 @@ function EditShiftModal({ shift, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="bg-gradient-to-r from-primary to-purple-800 px-6 py-5 text-white">
           <div className="flex items-center justify-between">
@@ -553,16 +605,18 @@ function EditShiftModal({ shift, onClose }) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Hora inicio</label>
-              <input type="time" value={startTime} onChange={e => { setStartTime(e.target.value); setType('custom') }}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Hora fin</label>
-              <input type="time" value={endTime} onChange={e => { setEndTime(e.target.value); setType('custom') }}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
-            </div>
+            <Input
+              type="time"
+              label="Hora inicio"
+              value={startTime}
+              onChange={e => { setStartTime(e.target.value); setType('custom') }}
+            />
+            <Input
+              type="time"
+              label="Hora fin"
+              value={endTime}
+              onChange={e => { setEndTime(e.target.value); setType('custom') }}
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Color</label>

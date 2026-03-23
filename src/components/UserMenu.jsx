@@ -26,7 +26,7 @@ export default function UserMenu({ collapsed }) {
     <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
       <button onClick={() => navigate('/profile')} className="shrink-0 relative">
         <Avatar name={user?.name} size="sm" />
-        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white" />
+        <div className="ui-success-dot absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white" />
       </button>
       {!collapsed && (
         <>

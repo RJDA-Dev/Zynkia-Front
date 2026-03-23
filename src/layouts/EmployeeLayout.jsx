@@ -1,118 +1,165 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../context/LangContext'
+import { shellTheme } from '../config/theme'
 import Avatar from '../components/ui/Avatar'
 
 const tabs = (es) => [
   { to: '/employee', icon: 'home', label: es ? 'Inicio' : 'Home', end: true },
   { to: '/employee/schedule', icon: 'calendar_month', label: es ? 'Horario' : 'Schedule' },
   { to: '/employee/requests', icon: 'description', label: es ? 'Solicitudes' : 'Requests' },
+  { to: '/employee/inventory', icon: 'inventory_2', label: es ? 'Inventario' : 'Inventory' },
   { to: '/employee/notifications', icon: 'notifications', label: es ? 'Alertas' : 'Alerts' },
   { to: '/employee/profile', icon: 'person', label: es ? 'Perfil' : 'Profile' },
 ]
+
+function EmployeeNavLink({ to, icon, label, end = false, compact = false }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => `${compact
+        ? `flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition-all ${isActive ? 'bg-slate-900 text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)]' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`
+        : `flex items-center gap-3 rounded-[22px] px-3 py-3 text-sm font-medium transition-all ${isActive ? 'bg-slate-900 text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)]' : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-[0_14px_28px_rgba(15,23,42,0.06)]'}`}`}
+    >
+      {({ isActive }) => (
+        <>
+          <span className="material-symbols-outlined text-[20px]" style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}>
+            {icon}
+          </span>
+          <span className={compact ? 'truncate' : ''}>{label}</span>
+        </>
+      )}
+    </NavLink>
+  )
+}
 
 export default function EmployeeLayout() {
   const { user, logout } = useAuth()
   const { lang } = useLang()
   const es = lang === 'es'
-  const now = new Date()
-  const dateStr = now.toLocaleDateString(es ? 'es-CO' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })
   const items = tabs(es)
+  const dateStr = new Date().toLocaleDateString(es ? 'es-CO' : 'en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Desktop sidebar — hidden on mobile */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex-col z-30">
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-xl">psychology_alt</span>
+    <div className="relative min-h-screen overflow-hidden bg-background text-slate-900">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[-10%] top-[-12%] h-72 w-72 rounded-full bg-primary/12 blur-3xl" />
+        <div className="absolute bottom-[-12%] right-[-5%] h-80 w-80 rounded-full bg-warning/12 blur-3xl" />
+      </div>
+
+      <aside className="relative z-20 hidden lg:block shrink-0 p-4 pr-0">
+        <div className="flex h-[calc(100vh-2rem)] w-[300px] flex-col overflow-hidden rounded-[28px] transition-all duration-300 ease-in-out">
+          <div className={`flex h-full w-full flex-col overflow-hidden rounded-[28px] ${shellTheme.panel}`}>
+            <div className="border-b border-slate-200/70 px-5 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+                  <span className="material-symbols-outlined text-[20px]">hub</span>
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-base font-bold tracking-tight text-slate-900">Zekya HR</span>
+                  <span className="block truncate text-xs text-slate-500">{es ? 'Portal del empleado' : 'Employee portal'}</span>
+                </div>
+              </div>
             </div>
-            <span className="text-xl font-bold text-gray-900 tracking-tight">Zynkia</span>
+
+            <div className="border-b border-slate-200/70 px-4 py-4">
+              <div className="rounded-[24px] border border-slate-200/80 bg-slate-50/80 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <Avatar name={user?.name} size="md" />
+                    <span className="ui-success-dot absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user?.name}</p>
+                    <p className="truncate text-xs text-slate-500">{user?.email}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <nav className="app-scrollbar flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-4 py-5">
+              <div>
+                <div className="mb-2 px-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{es ? 'Mi espacio' : 'My workspace'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  {items.map((tab) => (
+                    <EmployeeNavLink key={tab.to} {...tab} />
+                  ))}
+                </div>
+              </div>
+            </nav>
+
+            <div className="border-t border-slate-200/70 p-4">
+              <button
+                type="button"
+                onClick={logout}
+                className="flex w-full items-center gap-3 rounded-[22px] px-3 py-3 text-sm font-medium text-slate-500 transition-all hover:bg-red-50 hover:text-red-600"
+              >
+                <span className="material-symbols-outlined text-[20px]">logout</span>
+                {es ? 'Cerrar sesion' : 'Logout'}
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="p-4 mx-3 mt-4 rounded-xl bg-gray-50 border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Avatar name={user?.name} size="md" />
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user?.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-            </div>
-          </div>
-        </div>
-        <nav className="flex-1 px-3 mt-6 space-y-1">
-          {items.map(tab => (
-            <NavLink key={tab.to} to={tab.to} end={tab.end}
-              className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
-              {({ isActive }) => (
-                <>
-                  <span className="material-symbols-outlined text-xl" style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}>{tab.icon}</span>
-                  {tab.label}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-gray-100">
-          <button onClick={logout} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all w-full">
-            <span className="material-symbols-outlined text-xl">logout</span>
-            {es ? 'Cerrar sesion' : 'Logout'}
-          </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:ml-64">
-        {/* Desktop header */}
-        <header className="hidden lg:flex items-center justify-between px-8 py-5 bg-white border-b border-gray-200 sticky top-0 z-20">
-          <div>
-            <p className="text-sm text-gray-500 capitalize">{dateStr}</p>
-            <h1 className="text-2xl font-bold text-gray-900">{es ? 'Hola' : 'Hi'}, {user?.name?.split(' ')[0]}</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Avatar name={user?.name} size="sm" />
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" />
+      <main className="relative z-10 flex min-h-screen flex-1 overflow-hidden lg:pl-0">
+        <div className="flex h-full w-full flex-col gap-3 p-3 sm:gap-4 sm:p-6">
+          <header className={`hidden items-center justify-between gap-3 rounded-[30px] px-6 py-4 lg:flex ${shellTheme.panel}`}>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{es ? 'Portal del empleado' : 'Employee portal'}</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{es ? 'Hola' : 'Hi'}, {user?.name?.split(' ')[0]}</h1>
+              <p className="text-sm capitalize text-slate-500">{dateStr}</p>
             </div>
-          </div>
-        </header>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                <span className="material-symbols-outlined text-[14px]">badge</span>
+                {es ? 'Autogestion' : 'Self-service'}
+              </span>
+              <div className="relative shrink-0">
+                <Avatar name={user?.name} size="sm" />
+                <span className="ui-success-dot absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white" />
+              </div>
+            </div>
+          </header>
 
-        {/* Mobile header */}
-        <header className="lg:hidden pt-12 px-5 pb-6 flex justify-between items-start bg-gray-50 sticky top-0 z-10">
-          <div>
-            <p className="text-gray-500 text-sm font-medium tracking-wide capitalize">{dateStr}</p>
-            <h1 className="text-gray-900 text-2xl font-bold tracking-tight">{es ? 'Hola' : 'Hi'}, {user?.name?.split(' ')[0]}</h1>
-          </div>
-          <div className="relative shrink-0">
-            <Avatar name={user?.name} size="lg" />
-            <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
-          </div>
-        </header>
+          <header className={`rounded-[24px] px-4 py-4 lg:hidden ${shellTheme.panel}`} style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{es ? 'Portal del empleado' : 'Employee portal'}</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{es ? 'Hola' : 'Hi'}, {user?.name?.split(' ')[0]}</h1>
+                <p className="text-sm capitalize text-slate-500">{dateStr}</p>
+              </div>
+              <div className="relative shrink-0">
+                <Avatar name={user?.name} size="lg" />
+                <span className="ui-success-dot absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" />
+              </div>
+            </div>
+          </header>
 
-        {/* Content */}
-        <main className="px-5 pb-24 lg:px-8 lg:py-6 lg:pb-8">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+          <section className={`app-scrollbar flex-1 overflow-y-auto rounded-[24px] p-4 pb-24 sm:p-6 lg:pb-6 ${shellTheme.mutedPanel}`}>
+            <div className="mx-auto max-w-5xl animate-fade-in">
+              <Outlet />
+            </div>
+          </section>
+        </div>
+      </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 px-6 py-2 flex justify-between items-center z-50" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 20px), 20px)' }}>
-        {items.map(tab => (
-          <NavLink key={tab.to} to={tab.to} end={tab.end}
-            className={({ isActive }) => `flex flex-col items-center justify-center gap-1 w-16 transition-colors ${isActive ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}>
-            {({ isActive }) => (
-              <>
-                <span className="material-symbols-outlined" style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}>{tab.icon}</span>
-                <span className="text-[10px] font-medium">{tab.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 bg-white/90 px-3 py-2 backdrop-blur-xl lg:hidden"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 18px), 18px)' }}
+      >
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-1">
+          {items.map((tab) => (
+            <EmployeeNavLink key={tab.to} compact {...tab} />
+          ))}
+        </div>
       </nav>
     </div>
   )
